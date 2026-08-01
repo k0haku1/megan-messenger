@@ -4,5 +4,5 @@
 go.sum
 
 tmp/
-api
+/api
 megan-messenger-api
