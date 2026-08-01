@@ -1,0 +1,8 @@
+.idea/
+
+.env
+go.sum
+
+tmp/
+api
+megan-messenger-api
