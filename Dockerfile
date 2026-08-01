@@ -3,7 +3,7 @@ FROM golang:1.26-alpine AS dev
 
 WORKDIR /app
 
-RUN apk add --no-cache git
+RUN apk add --no-cache git ca-certificates
 ENV PATH="${PATH}:/go/bin"
 RUN go install github.com/air-verse/air@v1.67.3
 
@@ -11,12 +11,14 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
+RUN chmod +x scripts/dev-entrypoint.sh
 
-CMD ["air", "-c", ".air.toml"]
+EXPOSE 8080
+ENTRYPOINT ["scripts/dev-entrypoint.sh"]
 
 FROM golang:1.26-alpine AS builder
 
-RUN apk add --no-cache git make
+RUN apk add --no-cache git make ca-certificates
 
 WORKDIR /app
 

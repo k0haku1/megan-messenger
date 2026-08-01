@@ -8,6 +8,8 @@ services:
       - "8080:8080"
     volumes:
       - .:/app
+      - go_mod_cache:/go/pkg/mod
+      - go_build_cache:/root/.cache/go-build
     depends_on:
       - postgres
       - redis
@@ -30,3 +32,5 @@ services:
 
 volumes:
   postgres_data:
+  go_mod_cache:
+  go_build_cache:
