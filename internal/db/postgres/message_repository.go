@@ -38,7 +38,7 @@ func mapMessages(rows []db.GetMessagesPagingRow) []model.Message {
 			CreatedAt:      r.CreatedAt.Time,
 			Sender: model.MessageSender{
 				ID:        r.SenderID,
-				Username:  r.Username,
+				Username:  textOrEmpty(r.Username),
 				AvatarURL: textOrEmpty(r.AvatarUrl),
 			},
 		})

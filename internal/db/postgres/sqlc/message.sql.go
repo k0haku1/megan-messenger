@@ -46,7 +46,7 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 }
 
 const getMessagesPaging = `-- name: GetMessagesPaging :many
-SELECT m.id, m.conversation_id, m.sender_id, m.content, m.created_at, u.id, u.username, u.email, u.email_verified, u.password_hash, u.created_at, u.avatar_url
+SELECT m.id, m.conversation_id, m.sender_id, m.content, m.created_at, u.id, u.phone, u.username, u.password_hash, u.avatar_url, u.created_at
 FROM messages m
          JOIN users u ON u.id = m.sender_id
 WHERE m.conversation_id = $1::uuid
@@ -73,12 +73,11 @@ type GetMessagesPagingRow struct {
 	Content        string             `db:"content" json:"content"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 	ID_2           uuid.UUID          `db:"id_2" json:"id2"`
-	Username       string             `db:"username" json:"username"`
-	Email          string             `db:"email" json:"email"`
-	EmailVerified  bool               `db:"email_verified" json:"emailVerified"`
+	Phone          string             `db:"phone" json:"phone"`
+	Username       pgtype.Text        `db:"username" json:"username"`
 	PasswordHash   pgtype.Text        `db:"password_hash" json:"passwordHash"`
-	CreatedAt_2    pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
 	AvatarUrl      pgtype.Text        `db:"avatar_url" json:"avatarUrl"`
+	CreatedAt_2    pgtype.Timestamptz `db:"created_at_2" json:"createdAt2"`
 }
 
 func (q *Queries) GetMessagesPaging(ctx context.Context, arg GetMessagesPagingParams) ([]GetMessagesPagingRow, error) {
@@ -102,12 +101,11 @@ func (q *Queries) GetMessagesPaging(ctx context.Context, arg GetMessagesPagingPa
 			&i.Content,
 			&i.CreatedAt,
 			&i.ID_2,
+			&i.Phone,
 			&i.Username,
-			&i.Email,
-			&i.EmailVerified,
 			&i.PasswordHash,
-			&i.CreatedAt_2,
 			&i.AvatarUrl,
+			&i.CreatedAt_2,
 		); err != nil {
 			return nil, err
 		}

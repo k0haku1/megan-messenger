@@ -1,34 +1,29 @@
--- name: GetUserByLogin :one
-SELECT *
-FROM users
-WHERE username = @login
-   OR email = @login LIMIT 1
-;
-
--- name: CreateUser :one
-INSERT INTO users (id, username, email, password_hash, created_at, avatar_url, email_verified)
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *;
-
 -- name: GetUser :one
 SELECT *
 FROM users
-WHERE id = $1 LIMIT 1;
+WHERE id = $1
+LIMIT 1;
 
--- name: UserWithUsernameExists :one
-SELECT EXISTS (SELECT 1
-               FROM users
-               WHERE username = $1)
-;
+-- name: GetUserByPhone :one
+SELECT *
+FROM users
+WHERE phone = $1
+LIMIT 1;
 
--- name: UserWithEmailExists :one
-SELECT EXISTS (SELECT 1
-               FROM users
-               WHERE email = $1)
-;
+-- name: GetUserByUsername :one
+SELECT *
+FROM users
+WHERE username = $1
+LIMIT 1;
 
--- name: UpdateUserEmail :exec
+-- name: CreateUser :one
+INSERT INTO users (id, phone, created_at)
+VALUES ($1, $2, $3)
+RETURNING *;
+
+-- name: SetUsername :exec
 UPDATE users
-SET email = $1
+SET username = $1
 WHERE id = $2;
 
 -- name: UpdateUserPassword :exec
@@ -36,41 +31,47 @@ UPDATE users
 SET password_hash = $1
 WHERE id = $2;
 
+-- name: ClearUserPassword :exec
+UPDATE users
+SET password_hash = NULL
+WHERE id = $1;
+
 -- name: UpdateUserAvatar :exec
 UPDATE users
 SET avatar_url = $1
 WHERE id = $2;
 
--- name: MarkEmailVerified :exec
-UPDATE users
-SET email_verified = true
-WHERE id = $1;
+-- name: UserWithUsernameExists :one
+SELECT EXISTS (SELECT 1
+               FROM users
+               WHERE username = $1);
 
--- name: UpsertEmailVerificationCode :exec
-INSERT INTO email_verification_codes (user_id, code_hash, pending_email, expires_at, attempts, created_at)
-VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (user_id) DO
-UPDATE
-    SET code_hash = EXCLUDED.code_hash,
-    pending_email = EXCLUDED.pending_email,
-    expires_at = EXCLUDED.expires_at,
-    attempts = EXCLUDED.attempts,
-    created_at = EXCLUDED.created_at;
+-- name: UserWithPhoneExists :one
+SELECT EXISTS (SELECT 1
+               FROM users
+               WHERE phone = $1);
 
--- name: GetEmailVerificationCode :one
+-- name: UpsertPhoneOTP :exec
+INSERT INTO phone_otp_codes (phone, code_hash, expires_at, attempts, sent_at, created_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (phone) DO UPDATE
+    SET code_hash  = EXCLUDED.code_hash,
+        expires_at = EXCLUDED.expires_at,
+        attempts   = EXCLUDED.attempts,
+        sent_at    = EXCLUDED.sent_at,
+        created_at = EXCLUDED.created_at;
+
+-- name: GetPhoneOTP :one
 SELECT *
-FROM email_verification_codes
-WHERE user_id = $1;
+FROM phone_otp_codes
+WHERE phone = $1;
 
--- name: DeleteEmailVerificationCode :exec
-DELETE FROM email_verification_codes
-WHERE user_id = $1;
-
--- name: GetEmailVerificationCodeByEmail :one
-SELECT *
-FROM email_verification_codes
-WHERE pending_email = $1;
-
--- name: IncrementVerificationAttempts :exec
-UPDATE email_verification_codes
+-- name: IncrementPhoneOTPAttempts :exec
+UPDATE phone_otp_codes
 SET attempts = attempts + 1
-WHERE user_id = $1;
+WHERE phone = $1;
+
+-- name: DeletePhoneOTP :exec
+DELETE
+FROM phone_otp_codes
+WHERE phone = $1;

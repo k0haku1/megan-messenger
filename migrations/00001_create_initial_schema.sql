@@ -3,11 +3,24 @@
 CREATE TABLE users
 (
     id             UUID PRIMARY KEY,
-    username       VARCHAR(50)  NOT NULL UNIQUE,
-    email          VARCHAR(255) NOT NULL UNIQUE,
-    email_verified BOOLEAN      NOT NULL,
+    phone          VARCHAR(16) NOT NULL UNIQUE,
+    username       VARCHAR(32) UNIQUE,
     password_hash  VARCHAR(255),
-    created_at     TIMESTAMPTZ  NOT NULL
+    avatar_url     TEXT,
+    created_at     TIMESTAMPTZ NOT NULL,
+    CONSTRAINT users_username_format CHECK (
+        username IS NULL OR username ~ '^[a-zA-Z0-9]{3,32}$'
+    )
+);
+
+CREATE TABLE phone_otp_codes
+(
+    phone      VARCHAR(16) PRIMARY KEY,
+    code_hash  VARCHAR(255) NOT NULL,
+    expires_at TIMESTAMPTZ  NOT NULL,
+    attempts   INT          NOT NULL DEFAULT 0,
+    sent_at    TIMESTAMPTZ  NOT NULL,
+    created_at TIMESTAMPTZ  NOT NULL
 );
 
 CREATE TYPE conversation_type AS ENUM ('dm', 'group');
@@ -64,6 +77,6 @@ DROP TABLE IF EXISTS dm_pairs;
 DROP TABLE IF EXISTS conversation_members;
 DROP TABLE IF EXISTS conversations;
 DROP TYPE IF EXISTS conversation_type;
+DROP TABLE IF EXISTS phone_otp_codes;
 DROP TABLE IF EXISTS users;
-DROP INDEX IF EXISTS idx_messages_conversation_created;
 -- +goose StatementEnd

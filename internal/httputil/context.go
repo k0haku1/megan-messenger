@@ -12,9 +12,10 @@ type userContextKeyType struct{}
 var userContextKey = userContextKeyType{}
 
 type UserContext struct {
-	ID              uuid.UUID
-	Email           string
-	IsVerifiedEmail bool
+	ID                 uuid.UUID
+	Phone              string
+	Username           string
+	OnboardingComplete bool
 }
 
 func WithUser(ctx context.Context, user *UserContext) context.Context {

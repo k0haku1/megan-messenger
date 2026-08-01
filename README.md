@@ -2,7 +2,7 @@
 
 [Читать на русском](README.ru.md)
 
-Corporate messenger backend API in Go. Frontend lives in a separate repository.
+Corporate messenger backend API in Go. Frontend lives in `frontend/`.
 
 ## Stack
 
@@ -10,6 +10,13 @@ Corporate messenger backend API in Go. Frontend lives in a separate repository.
 - **Database**: PostgreSQL, Redis
 - **Realtime**: WebSocket + Redis pub/sub
 - **Tooling**: Docker, SQLC, Swagger, goose
+
+## Auth (Telegram-like)
+
+1. `POST /auth/phone/start` — send OTP (logged to console in dev)
+2. `POST /auth/phone/verify` — verify code → tokens **or** password challenge
+3. Optional: `POST /auth/password/verify` — if cloud password is set
+4. `POST /auth/onboarding/username` — required before chats
 
 ## Requirements
 
@@ -24,8 +31,18 @@ make up
 make migrate-up
 ```
 
+If you changed migrations from scratch, reset the DB volume:
+
+```bash
+docker compose down -v
+make up
+make migrate-up
+```
+
 API: http://localhost:8080  
 Swagger: http://localhost:8080/docs/index.html
+
+OTP codes are printed in API container logs (`make logs`).
 
 ## Project layout
 
@@ -34,8 +51,9 @@ Swagger: http://localhost:8080/docs/index.html
 ├── cmd/
 │   ├── api/            # HTTP + WebSocket server
 │   └── migrate/        # goose migrations
+├── frontend/           # Vue client
 ├── internal/
-│   ├── auth/           # JWT auth
+│   ├── auth/           # phone OTP + JWT
 │   ├── user/           # users
 │   ├── conversation/   # chats (dm, group)
 │   ├── message/        # messages
@@ -55,5 +73,3 @@ make sqlc    # regenerate sqlc after editing sql/queries
 make swag    # regenerate swagger
 make logs    # API container logs
 ```
-
-Bootstrapped from [lunar](https://github.com/fluffur/lunar) with Discord-specific parts removed (friends, LiveKit voice, bundled frontend).

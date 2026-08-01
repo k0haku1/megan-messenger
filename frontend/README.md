@@ -9,15 +9,18 @@ npm install
 npm run dev
 ```
 
-Vite proxies `/api/*` to `http://localhost:8080/*`. Set `VITE_API_URL` later if a deployed API needs a different transport strategy.
+Vite proxies `/api/*` to `http://localhost:8080/*`.
+
+Auth: http://localhost:5173/auth — phone → OTP (код в логах API) → username.
 
 ## Layout
 
-- `src/app` — application bootstrap and global styles
-- `src/entities` — domain types, API adapters, and Dexie persistence
-- `src/features` — user actions and Pinia UI state
+- `src/app` — bootstrap, router, global styles
+- `src/pages` — route screens (`auth`, `messenger`)
 - `src/widgets` — composed UI
-- `src/shared` — API transport, Query client, DB, reusable utilities
+- `src/features` — user actions (`auth` flow, conversation selection)
+- `src/entities` — domain (`session`, `conversation`) + API/Dexie
+- `src/shared` — HTTP, Query client, DB, UI primitives
 
 Keep server synchronization in `entities/*/api/*.queries.ts`; Vue components subscribe with `useLiveQuery` only.
 

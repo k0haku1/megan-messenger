@@ -12,98 +12,79 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createUser = `-- name: CreateUser :one
-INSERT INTO users (id, username, email, password_hash, created_at, avatar_url, email_verified)
-VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, username, email, email_verified, password_hash, created_at, avatar_url
+const clearUserPassword = `-- name: ClearUserPassword :exec
+UPDATE users
+SET password_hash = NULL
+WHERE id = $1
 `
 
-type CreateUserParams struct {
-	ID            uuid.UUID          `db:"id" json:"id"`
-	Username      string             `db:"username" json:"username"`
-	Email         string             `db:"email" json:"email"`
-	PasswordHash  pgtype.Text        `db:"password_hash" json:"passwordHash"`
-	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	AvatarUrl     pgtype.Text        `db:"avatar_url" json:"avatarUrl"`
-	EmailVerified bool               `db:"email_verified" json:"emailVerified"`
-}
-
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRow(ctx, createUser,
-		arg.ID,
-		arg.Username,
-		arg.Email,
-		arg.PasswordHash,
-		arg.CreatedAt,
-		arg.AvatarUrl,
-		arg.EmailVerified,
-	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Username,
-		&i.Email,
-		&i.EmailVerified,
-		&i.PasswordHash,
-		&i.CreatedAt,
-		&i.AvatarUrl,
-	)
-	return i, err
-}
-
-const deleteEmailVerificationCode = `-- name: DeleteEmailVerificationCode :exec
-DELETE FROM email_verification_codes
-WHERE user_id = $1
-`
-
-func (q *Queries) DeleteEmailVerificationCode(ctx context.Context, userID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteEmailVerificationCode, userID)
+func (q *Queries) ClearUserPassword(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearUserPassword, id)
 	return err
 }
 
-const getEmailVerificationCode = `-- name: GetEmailVerificationCode :one
-SELECT user_id, code_hash, expires_at, attempts, created_at, pending_email
-FROM email_verification_codes
-WHERE user_id = $1
+const createUser = `-- name: CreateUser :one
+INSERT INTO users (id, phone, created_at)
+VALUES ($1, $2, $3)
+RETURNING id, phone, username, password_hash, avatar_url, created_at
 `
 
-func (q *Queries) GetEmailVerificationCode(ctx context.Context, userID uuid.UUID) (EmailVerificationCode, error) {
-	row := q.db.QueryRow(ctx, getEmailVerificationCode, userID)
-	var i EmailVerificationCode
+type CreateUserParams struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	Phone     string             `db:"phone" json:"phone"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.ID, arg.Phone, arg.CreatedAt)
+	var i User
 	err := row.Scan(
-		&i.UserID,
-		&i.CodeHash,
-		&i.ExpiresAt,
-		&i.Attempts,
+		&i.ID,
+		&i.Phone,
+		&i.Username,
+		&i.PasswordHash,
+		&i.AvatarUrl,
 		&i.CreatedAt,
-		&i.PendingEmail,
 	)
 	return i, err
 }
 
-const getEmailVerificationCodeByEmail = `-- name: GetEmailVerificationCodeByEmail :one
-SELECT user_id, code_hash, expires_at, attempts, created_at, pending_email
-FROM email_verification_codes
-WHERE pending_email = $1
+const deletePhoneOTP = `-- name: DeletePhoneOTP :exec
+DELETE
+FROM phone_otp_codes
+WHERE phone = $1
 `
 
-func (q *Queries) GetEmailVerificationCodeByEmail(ctx context.Context, pendingEmail pgtype.Text) (EmailVerificationCode, error) {
-	row := q.db.QueryRow(ctx, getEmailVerificationCodeByEmail, pendingEmail)
-	var i EmailVerificationCode
+func (q *Queries) DeletePhoneOTP(ctx context.Context, phone string) error {
+	_, err := q.db.Exec(ctx, deletePhoneOTP, phone)
+	return err
+}
+
+const getPhoneOTP = `-- name: GetPhoneOTP :one
+SELECT phone, code_hash, expires_at, attempts, sent_at, created_at
+FROM phone_otp_codes
+WHERE phone = $1
+`
+
+func (q *Queries) GetPhoneOTP(ctx context.Context, phone string) (PhoneOtpCode, error) {
+	row := q.db.QueryRow(ctx, getPhoneOTP, phone)
+	var i PhoneOtpCode
 	err := row.Scan(
-		&i.UserID,
+		&i.Phone,
 		&i.CodeHash,
 		&i.ExpiresAt,
 		&i.Attempts,
+		&i.SentAt,
 		&i.CreatedAt,
-		&i.PendingEmail,
 	)
 	return i, err
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, email, email_verified, password_hash, created_at, avatar_url
+SELECT id, phone, username, password_hash, avatar_url, created_at
 FROM users
-WHERE id = $1 LIMIT 1
+WHERE id = $1
+LIMIT 1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
@@ -111,57 +92,81 @@ func (q *Queries) GetUser(ctx context.Context, id uuid.UUID) (User, error) {
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Phone,
 		&i.Username,
-		&i.Email,
-		&i.EmailVerified,
 		&i.PasswordHash,
-		&i.CreatedAt,
 		&i.AvatarUrl,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const getUserByLogin = `-- name: GetUserByLogin :one
-SELECT id, username, email, email_verified, password_hash, created_at, avatar_url
+const getUserByPhone = `-- name: GetUserByPhone :one
+SELECT id, phone, username, password_hash, avatar_url, created_at
 FROM users
-WHERE username = $1
-   OR email = $1 LIMIT 1
+WHERE phone = $1
+LIMIT 1
 `
 
-func (q *Queries) GetUserByLogin(ctx context.Context, login string) (User, error) {
-	row := q.db.QueryRow(ctx, getUserByLogin, login)
+func (q *Queries) GetUserByPhone(ctx context.Context, phone string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByPhone, phone)
 	var i User
 	err := row.Scan(
 		&i.ID,
+		&i.Phone,
 		&i.Username,
-		&i.Email,
-		&i.EmailVerified,
 		&i.PasswordHash,
-		&i.CreatedAt,
 		&i.AvatarUrl,
+		&i.CreatedAt,
 	)
 	return i, err
 }
 
-const incrementVerificationAttempts = `-- name: IncrementVerificationAttempts :exec
-UPDATE email_verification_codes
-SET attempts = attempts + 1
-WHERE user_id = $1
+const getUserByUsername = `-- name: GetUserByUsername :one
+SELECT id, phone, username, password_hash, avatar_url, created_at
+FROM users
+WHERE username = $1
+LIMIT 1
 `
 
-func (q *Queries) IncrementVerificationAttempts(ctx context.Context, userID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, incrementVerificationAttempts, userID)
+func (q *Queries) GetUserByUsername(ctx context.Context, username pgtype.Text) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByUsername, username)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Phone,
+		&i.Username,
+		&i.PasswordHash,
+		&i.AvatarUrl,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const incrementPhoneOTPAttempts = `-- name: IncrementPhoneOTPAttempts :exec
+UPDATE phone_otp_codes
+SET attempts = attempts + 1
+WHERE phone = $1
+`
+
+func (q *Queries) IncrementPhoneOTPAttempts(ctx context.Context, phone string) error {
+	_, err := q.db.Exec(ctx, incrementPhoneOTPAttempts, phone)
 	return err
 }
 
-const markEmailVerified = `-- name: MarkEmailVerified :exec
+const setUsername = `-- name: SetUsername :exec
 UPDATE users
-SET email_verified = true
-WHERE id = $1
+SET username = $1
+WHERE id = $2
 `
 
-func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) error {
-	_, err := q.db.Exec(ctx, markEmailVerified, id)
+type SetUsernameParams struct {
+	Username pgtype.Text `db:"username" json:"username"`
+	ID       uuid.UUID   `db:"id" json:"id"`
+}
+
+func (q *Queries) SetUsername(ctx context.Context, arg SetUsernameParams) error {
+	_, err := q.db.Exec(ctx, setUsername, arg.Username, arg.ID)
 	return err
 }
 
@@ -181,22 +186,6 @@ func (q *Queries) UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarPara
 	return err
 }
 
-const updateUserEmail = `-- name: UpdateUserEmail :exec
-UPDATE users
-SET email = $1
-WHERE id = $2
-`
-
-type UpdateUserEmailParams struct {
-	Email string    `db:"email" json:"email"`
-	ID    uuid.UUID `db:"id" json:"id"`
-}
-
-func (q *Queries) UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) error {
-	_, err := q.db.Exec(ctx, updateUserEmail, arg.Email, arg.ID)
-	return err
-}
-
 const updateUserPassword = `-- name: UpdateUserPassword :exec
 UPDATE users
 SET password_hash = $1
@@ -213,46 +202,46 @@ func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPassword
 	return err
 }
 
-const upsertEmailVerificationCode = `-- name: UpsertEmailVerificationCode :exec
-INSERT INTO email_verification_codes (user_id, code_hash, pending_email, expires_at, attempts, created_at)
-VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (user_id) DO
-UPDATE
-    SET code_hash = EXCLUDED.code_hash,
-    pending_email = EXCLUDED.pending_email,
-    expires_at = EXCLUDED.expires_at,
-    attempts = EXCLUDED.attempts,
-    created_at = EXCLUDED.created_at
+const upsertPhoneOTP = `-- name: UpsertPhoneOTP :exec
+INSERT INTO phone_otp_codes (phone, code_hash, expires_at, attempts, sent_at, created_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (phone) DO UPDATE
+    SET code_hash  = EXCLUDED.code_hash,
+        expires_at = EXCLUDED.expires_at,
+        attempts   = EXCLUDED.attempts,
+        sent_at    = EXCLUDED.sent_at,
+        created_at = EXCLUDED.created_at
 `
 
-type UpsertEmailVerificationCodeParams struct {
-	UserID       uuid.UUID          `db:"user_id" json:"userId"`
-	CodeHash     string             `db:"code_hash" json:"codeHash"`
-	PendingEmail pgtype.Text        `db:"pending_email" json:"pendingEmail"`
-	ExpiresAt    pgtype.Timestamptz `db:"expires_at" json:"expiresAt"`
-	Attempts     int32              `db:"attempts" json:"attempts"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+type UpsertPhoneOTPParams struct {
+	Phone     string             `db:"phone" json:"phone"`
+	CodeHash  string             `db:"code_hash" json:"codeHash"`
+	ExpiresAt pgtype.Timestamptz `db:"expires_at" json:"expiresAt"`
+	Attempts  int32              `db:"attempts" json:"attempts"`
+	SentAt    pgtype.Timestamptz `db:"sent_at" json:"sentAt"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
-func (q *Queries) UpsertEmailVerificationCode(ctx context.Context, arg UpsertEmailVerificationCodeParams) error {
-	_, err := q.db.Exec(ctx, upsertEmailVerificationCode,
-		arg.UserID,
+func (q *Queries) UpsertPhoneOTP(ctx context.Context, arg UpsertPhoneOTPParams) error {
+	_, err := q.db.Exec(ctx, upsertPhoneOTP,
+		arg.Phone,
 		arg.CodeHash,
-		arg.PendingEmail,
 		arg.ExpiresAt,
 		arg.Attempts,
+		arg.SentAt,
 		arg.CreatedAt,
 	)
 	return err
 }
 
-const userWithEmailExists = `-- name: UserWithEmailExists :one
+const userWithPhoneExists = `-- name: UserWithPhoneExists :one
 SELECT EXISTS (SELECT 1
                FROM users
-               WHERE email = $1)
+               WHERE phone = $1)
 `
 
-func (q *Queries) UserWithEmailExists(ctx context.Context, email string) (bool, error) {
-	row := q.db.QueryRow(ctx, userWithEmailExists, email)
+func (q *Queries) UserWithPhoneExists(ctx context.Context, phone string) (bool, error) {
+	row := q.db.QueryRow(ctx, userWithPhoneExists, phone)
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
@@ -264,7 +253,7 @@ SELECT EXISTS (SELECT 1
                WHERE username = $1)
 `
 
-func (q *Queries) UserWithUsernameExists(ctx context.Context, username string) (bool, error) {
+func (q *Queries) UserWithUsernameExists(ctx context.Context, username pgtype.Text) (bool, error) {
 	row := q.db.QueryRow(ctx, userWithUsernameExists, username)
 	var exists bool
 	err := row.Scan(&exists)

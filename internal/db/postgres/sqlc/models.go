@@ -76,15 +76,6 @@ type DmPair struct {
 	ConversationID uuid.UUID `db:"conversation_id" json:"conversationId"`
 }
 
-type EmailVerificationCode struct {
-	UserID       uuid.UUID          `db:"user_id" json:"userId"`
-	CodeHash     string             `db:"code_hash" json:"codeHash"`
-	ExpiresAt    pgtype.Timestamptz `db:"expires_at" json:"expiresAt"`
-	Attempts     int32              `db:"attempts" json:"attempts"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	PendingEmail pgtype.Text        `db:"pending_email" json:"pendingEmail"`
-}
-
 type Message struct {
 	ID             uuid.UUID          `db:"id" json:"id"`
 	ConversationID uuid.UUID          `db:"conversation_id" json:"conversationId"`
@@ -93,12 +84,20 @@ type Message struct {
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
+type PhoneOtpCode struct {
+	Phone     string             `db:"phone" json:"phone"`
+	CodeHash  string             `db:"code_hash" json:"codeHash"`
+	ExpiresAt pgtype.Timestamptz `db:"expires_at" json:"expiresAt"`
+	Attempts  int32              `db:"attempts" json:"attempts"`
+	SentAt    pgtype.Timestamptz `db:"sent_at" json:"sentAt"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
 type User struct {
-	ID            uuid.UUID          `db:"id" json:"id"`
-	Username      string             `db:"username" json:"username"`
-	Email         string             `db:"email" json:"email"`
-	EmailVerified bool               `db:"email_verified" json:"emailVerified"`
-	PasswordHash  pgtype.Text        `db:"password_hash" json:"passwordHash"`
-	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	AvatarUrl     pgtype.Text        `db:"avatar_url" json:"avatarUrl"`
+	ID           uuid.UUID          `db:"id" json:"id"`
+	Phone        string             `db:"phone" json:"phone"`
+	Username     pgtype.Text        `db:"username" json:"username"`
+	PasswordHash pgtype.Text        `db:"password_hash" json:"passwordHash"`
+	AvatarUrl    pgtype.Text        `db:"avatar_url" json:"avatarUrl"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -8,32 +9,34 @@ import (
 )
 
 type User struct {
-	ID            uuid.UUID `json:"id" binding:"required"`
-	Username      string    `json:"username" binding:"required"`
-	Email         string    `json:"email" binding:"required"`
-	PasswordHash  string    `json:"-"`
-	AvatarURL     string    `json:"avatarUrl"`
-	EmailVerified bool      `json:"emailVerified" binding:"required"`
-	CreatedAt     time.Time `json:"-" `
+	ID           uuid.UUID `json:"id"`
+	Phone        string    `json:"phone"`
+	Username     string    `json:"username,omitempty"`
+	PasswordHash string    `json:"-"`
+	AvatarURL    string    `json:"avatarUrl,omitempty"`
+	CreatedAt    time.Time `json:"-"`
 }
 
-func NewUser(username, email, password string, emailVerified bool) (User, error) {
-	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return User{}, err
-	}
-
+func NewUser(phone string) User {
 	return User{
-		ID:            uuid.Must(uuid.NewV7()),
-		Username:      username,
-		Email:         email,
-		PasswordHash:  string(passwordHash),
-		EmailVerified: emailVerified,
-		CreatedAt:     time.Now(),
-	}, nil
+		ID:        uuid.Must(uuid.NewV7()),
+		Phone:     phone,
+		CreatedAt: time.Now(),
+	}
+}
+
+func (u User) HasPassword() bool {
+	return u.PasswordHash != ""
+}
+
+func (u User) OnboardingComplete() bool {
+	return u.Username != ""
 }
 
 func (u *User) ComparePasswords(password string) error {
+	if u.PasswordHash == "" {
+		return errors.New("password not set")
+	}
 	return bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password))
 }
 
@@ -46,11 +49,11 @@ func (u *User) ChangePassword(newPassword string) error {
 	return nil
 }
 
-type EmailVerificationCode struct {
-	UserID       uuid.UUID
-	CodeHash     string
-	PendingEmail string
-	ExpiresAt    time.Time
-	Attempts     int
-	CreatedAt    time.Time
+type PhoneOTP struct {
+	Phone     string
+	CodeHash  string
+	ExpiresAt time.Time
+	Attempts  int
+	SentAt    time.Time
+	CreatedAt time.Time
 }

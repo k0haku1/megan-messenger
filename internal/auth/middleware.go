@@ -27,7 +27,7 @@ func WebSocketMiddleware(authenticator *Authenticator) func(next http.Handler) h
 	}
 }
 
-func Middleware(authenticator *Authenticator) func(http.Handler) http.Handler {
+func Middleware(authenticator *Authenticator) func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			authorization := r.Header.Get("Authorization")
@@ -46,6 +46,17 @@ func Middleware(authenticator *Authenticator) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, req)
 		})
 	}
+}
+
+func RequireOnboarded(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user := httputil.UserFromRequest(r)
+		if !user.OnboardingComplete {
+			httputil.Forbidden(w, "onboarding required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func authenticate(
@@ -67,15 +78,11 @@ func authenticate(
 		return nil, false
 	}
 
-	if !claims.IsVerifiedEmail {
-		httputil.Unauthorized(w, ErrEmailNotVerified.Error())
-		return nil, false
-	}
-
 	ctx := httputil.WithUser(r.Context(), &httputil.UserContext{
-		ID:              userID,
-		Email:           claims.Email,
-		IsVerifiedEmail: claims.IsVerifiedEmail,
+		ID:                 userID,
+		Phone:              claims.Phone,
+		Username:           claims.Username,
+		OnboardingComplete: claims.OnboardingComplete,
 	})
 
 	return r.WithContext(ctx), true

@@ -2,7 +2,7 @@
 
 [Read in English](README.md)
 
-Корпоративный мессенджер — backend API на Go. Фронтенд — отдельный репозиторий.
+Корпоративный мессенджер — backend API на Go. Фронтенд — в `frontend/`.
 
 ## Технологии
 
@@ -10,6 +10,13 @@
 - **База данных**: PostgreSQL, Redis
 - **Связь**: WebSocket (Redis pub/sub)
 - **Инструменты**: Docker, SQLC, Swagger, goose
+
+## Auth (как в Telegram)
+
+1. `POST /auth/phone/start` — отправка OTP (в dev код пишется в логи)
+2. `POST /auth/phone/verify` — проверка кода → токены **или** challenge пароля
+3. Опционально: `POST /auth/password/verify` — если задан cloud password
+4. `POST /auth/onboarding/username` — обязателен до доступа к чатам
 
 ## Требования
 
@@ -24,8 +31,18 @@ make up
 make migrate-up
 ```
 
+Если миграции переписаны с нуля — сбрось volume:
+
+```bash
+docker compose down -v
+make up
+make migrate-up
+```
+
 API: http://localhost:8080  
 Swagger: http://localhost:8080/docs/index.html
+
+OTP-коды смотри в логах API (`make logs`).
 
 ## Структура проекта
 
@@ -34,8 +51,9 @@ Swagger: http://localhost:8080/docs/index.html
 ├── cmd/
 │   ├── api/            # HTTP + WebSocket сервер
 │   └── migrate/        # goose миграции
+├── frontend/           # Vue клиент
 ├── internal/
-│   ├── auth/           # JWT auth
+│   ├── auth/           # phone OTP + JWT
 │   ├── user/           # пользователи
 │   ├── conversation/   # чаты (dm, group)
 │   ├── message/        # сообщения
@@ -55,5 +73,3 @@ make sqlc    # перегенерировать sqlc после изменени
 make swag    # перегенерировать swagger
 make logs    # логи API контейнера
 ```
-
-Базовый код перенесён из [lunar](https://github.com/fluffur/lunar) с удалением Discord-специфики (friends, LiveKit voice, frontend).

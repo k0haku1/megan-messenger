@@ -5,10 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
+	"megan-messenger/internal/config"
 	"megan-messenger/internal/model"
 	"megan-messenger/internal/notification"
 	"megan-messenger/internal/repository"
-	"math/big"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,200 +18,216 @@ import (
 
 var (
 	ErrUsernameExists     = errors.New("username already taken")
-	ErrInvalidEmail       = errors.New("email is invalid or already taken")
+	ErrUsernameAlreadySet = errors.New("username already set")
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrEmailNotVerified   = errors.New("email is not verified")
-	ErrTooManyAttempts    = errors.New("too many attempts")
-	ErrCodeExpired        = errors.New("code expired")
+	ErrInvalidPhone       = errors.New("invalid phone number")
 	ErrInvalidCode        = errors.New("invalid code")
+	ErrCodeExpired        = errors.New("code expired")
+	ErrTooManyAttempts    = errors.New("too many attempts")
+	ErrOTPResendCooldown  = errors.New("otp resend cooldown")
+	ErrInvalidChallenge   = errors.New("invalid challenge token")
+	ErrPasswordRequired   = errors.New("current password required")
+	ErrInvalidPassword    = errors.New("invalid password")
 )
 
 type Service struct {
-	authenticator        *Authenticator
-	userRepo             repository.UserRepository
-	refreshRepo          repository.RefreshTokenRepository
-	emailSender          notification.EmailSender
-	hasEmailVerification bool
+	authenticator  *Authenticator
+	userRepo       repository.UserRepository
+	refreshRepo    repository.RefreshTokenRepository
+	challengeRepo  repository.PasswordChallengeRepository
+	smsSender      notification.SmsSender
+	otpTTL         time.Duration
+	otpResendAfter time.Duration
+	otpMaxAttempts int
 }
 
 func NewService(
 	authenticator *Authenticator,
-	refreshService repository.RefreshTokenRepository,
+	refreshRepo repository.RefreshTokenRepository,
+	challengeRepo repository.PasswordChallengeRepository,
 	userRepo repository.UserRepository,
-	emailSender notification.EmailSender,
-	hasEmailVerification bool,
+	smsSender notification.SmsSender,
+	authCfg config.AuthConfig,
 ) *Service {
 	return &Service{
-		authenticator:        authenticator,
-		refreshRepo:          refreshService,
-		userRepo:             userRepo,
-		emailSender:          emailSender,
-		hasEmailVerification: hasEmailVerification,
+		authenticator:  authenticator,
+		refreshRepo:    refreshRepo,
+		challengeRepo:  challengeRepo,
+		userRepo:       userRepo,
+		smsSender:      smsSender,
+		otpTTL:         authCfg.OTP.TTL,
+		otpResendAfter: authCfg.OTP.ResendCooldown,
+		otpMaxAttempts: authCfg.OTP.MaxAttempts,
 	}
 }
 
-func (s *Service) Register(ctx context.Context, credentials RegisterCredentials) (Tokens, error) {
-
-	if exists, err := s.userRepo.CheckUsernameExists(ctx, credentials.Username); err != nil {
-		return Tokens{}, err
-	} else if exists {
-		return Tokens{}, ErrUsernameExists
-	}
-
-	if exists, err := s.userRepo.CheckEmailExists(ctx, credentials.Email); err != nil {
-		return Tokens{}, err
-	} else if exists {
-		return Tokens{}, ErrInvalidEmail
-	}
-
-	newUser, err := model.NewUser(credentials.Username, credentials.Email, credentials.Password, !s.hasEmailVerification)
+func (s *Service) StartPhoneAuth(ctx context.Context, rawPhone string) error {
+	phone, err := NormalizePhone(rawPhone)
 	if err != nil {
-		return Tokens{}, err
+		return err
 	}
 
-	createdUser, err := s.userRepo.Create(ctx, newUser)
-	if err != nil {
-		return Tokens{}, err
+	if existing, err := s.userRepo.GetPhoneOTP(ctx, phone); err == nil {
+		if time.Since(existing.SentAt) < s.otpResendAfter {
+			return ErrOTPResendCooldown
+		}
+	} else if !errors.Is(err, repository.ErrOTPNotFound) {
+		return err
 	}
 
-	if err := s.sendVerificationCode(ctx, createdUser.ID, createdUser.Email); err != nil {
-		return Tokens{}, fmt.Errorf("failed to send verification code: %w", err)
-	}
-
-	return Tokens{}, nil
-}
-
-func (s *Service) sendVerificationCode(ctx context.Context, userID uuid.UUID, email string) error {
 	code := s.generateVerificationCode()
 	hashedCode, err := bcrypt.GenerateFromPassword([]byte(code), bcrypt.DefaultCost)
 	if err != nil {
 		return err
 	}
 
-	if err := s.userRepo.SaveVerificationCode(ctx, userID, email, string(hashedCode), "15m"); err != nil {
+	now := time.Now()
+	if err := s.userRepo.UpsertPhoneOTP(ctx, phone, string(hashedCode), now.Add(s.otpTTL), now); err != nil {
 		return err
 	}
 
-	return s.emailSender.SendVerificationCode(ctx, email, code)
+	return s.smsSender.SendCode(ctx, phone, code)
 }
 
-func (s *Service) generateVerificationCode() string {
-	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+func (s *Service) VerifyPhone(ctx context.Context, rawPhone, code string) (AuthResult, error) {
+	phone, err := NormalizePhone(rawPhone)
 	if err != nil {
-		return "000000"
+		return AuthResult{}, err
 	}
-	return fmt.Sprintf("%06d", n)
+
+	otp, err := s.userRepo.GetPhoneOTP(ctx, phone)
+	if err != nil {
+		if errors.Is(err, repository.ErrOTPNotFound) {
+			return AuthResult{}, ErrInvalidCode
+		}
+		return AuthResult{}, err
+	}
+
+	if otp.Attempts >= s.otpMaxAttempts {
+		return AuthResult{}, ErrTooManyAttempts
+	}
+
+	if time.Now().After(otp.ExpiresAt) {
+		return AuthResult{}, ErrCodeExpired
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(otp.CodeHash), []byte(code)); err != nil {
+		_ = s.userRepo.IncrementPhoneOTPAttempts(ctx, phone)
+		return AuthResult{}, ErrInvalidCode
+	}
+
+	_ = s.userRepo.DeletePhoneOTP(ctx, phone)
+
+	user, err := s.userRepo.GetByPhone(ctx, phone)
+	if err != nil {
+		if !errors.Is(err, repository.ErrUserNotFound) {
+			return AuthResult{}, err
+		}
+		created, createErr := s.userRepo.Create(ctx, model.NewUser(phone))
+		if createErr != nil {
+			return AuthResult{}, createErr
+		}
+		user = created
+	}
+
+	if user.HasPassword() {
+		challengeToken, challengeErr := s.challengeRepo.Issue(ctx, user.ID)
+		if challengeErr != nil {
+			return AuthResult{}, challengeErr
+		}
+		return AuthResult{
+			NeedPassword:   true,
+			ChallengeToken: challengeToken,
+		}, nil
+	}
+
+	return s.issueAuthResult(ctx, user)
 }
 
-func (s *Service) SendEmailChangeVerification(ctx context.Context, userID uuid.UUID, newEmail string) error {
-	return s.sendVerificationCode(ctx, userID, newEmail)
+func (s *Service) VerifyPasswordChallenge(ctx context.Context, challengeToken, password string) (AuthResult, error) {
+	userID, err := s.challengeRepo.Consume(ctx, challengeToken)
+	if err != nil {
+		return AuthResult{}, ErrInvalidChallenge
+	}
+
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return AuthResult{}, err
+	}
+
+	if err := user.ComparePasswords(password); err != nil {
+		return AuthResult{}, ErrInvalidCredentials
+	}
+
+	return s.issueAuthResult(ctx, user)
 }
 
-func (s *Service) ResendVerificationEmail(ctx context.Context, email string) error {
-	storedCode, err := s.userRepo.GetVerificationCodeByEmail(ctx, email)
-	if err == nil {
-		user, err := s.userRepo.GetByID(ctx, storedCode.UserID)
-		if err == nil && user.EmailVerified && user.Email == email {
-			return ErrInvalidEmail
-		}
-		return s.sendVerificationCode(ctx, storedCode.UserID, email)
-	}
-
-	if !errors.Is(err, repository.ErrVerificationCodeNotFound) {
-		return err
-	}
-
-	user, err := s.userRepo.GetByLogin(ctx, email)
+func (s *Service) CompleteUsername(ctx context.Context, userID uuid.UUID, username string) (AuthResult, model.User, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return ErrInvalidEmail
+		return AuthResult{}, model.User{}, err
+	}
+	if user.Username != "" {
+		return AuthResult{}, model.User{}, ErrUsernameAlreadySet
+	}
+
+	exists, err := s.userRepo.CheckUsernameExists(ctx, username)
+	if err != nil {
+		return AuthResult{}, model.User{}, err
+	}
+	if exists {
+		return AuthResult{}, model.User{}, ErrUsernameExists
+	}
+
+	if err := s.userRepo.SetUsername(ctx, userID, username); err != nil {
+		if errors.Is(err, repository.ErrUniqueAlreadyExists) {
+			return AuthResult{}, model.User{}, ErrUsernameExists
 		}
-		return err
+		return AuthResult{}, model.User{}, err
 	}
 
-	if user.EmailVerified {
-		return ErrInvalidEmail
+	user.Username = username
+	result, err := s.issueAuthResult(ctx, user)
+	if err != nil {
+		return AuthResult{}, model.User{}, err
 	}
-
-	return s.sendVerificationCode(ctx, user.ID, user.Email)
+	return result, user, nil
 }
 
-func (s *Service) VerifyEmail(ctx context.Context, email, code string) error {
-	storedCode, err := s.userRepo.GetVerificationCodeByEmail(ctx, email)
-	if err != nil {
-		if errors.Is(err, repository.ErrVerificationCodeNotFound) {
-			return ErrInvalidEmail
-		}
-		return err
-	}
-
-	user, err := s.userRepo.GetByID(ctx, storedCode.UserID)
+func (s *Service) SetPassword(ctx context.Context, userID uuid.UUID, password, currentPassword string) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return err
 	}
 
-	if storedCode.Attempts >= 5 {
-		return ErrTooManyAttempts
+	if user.HasPassword() {
+		if currentPassword == "" {
+			return ErrPasswordRequired
+		}
+		if err := user.ComparePasswords(currentPassword); err != nil {
+			return ErrInvalidPassword
+		}
 	}
 
-	if time.Now().After(storedCode.ExpiresAt) {
-		return ErrCodeExpired
-	}
-
-	if err := bcrypt.CompareHashAndPassword([]byte(storedCode.CodeHash), []byte(code)); err != nil {
-		_ = s.userRepo.IncrementVerificationAttempts(ctx, user.ID)
-		return ErrInvalidCode
-	}
-
-	if err := s.userRepo.MarkEmailVerified(ctx, user.ID); err != nil {
+	if err := user.ChangePassword(password); err != nil {
 		return err
 	}
 
-	if storedCode.PendingEmail != "" && storedCode.PendingEmail != user.Email {
-		if err := s.userRepo.UpdateEmail(ctx, user.ID, storedCode.PendingEmail); err != nil {
-			return err
-		}
-		user.Email = storedCode.PendingEmail
-	}
-
-	_ = s.userRepo.DeleteVerificationCode(ctx, user.ID)
-
-	return nil
+	return s.userRepo.UpdatePassword(ctx, user.ID, user.PasswordHash)
 }
 
-func (s *Service) Login(ctx context.Context, credentials LoginCredentials) (Tokens, error) {
-	u, err := s.userRepo.GetByLogin(ctx, credentials.Login)
+func (s *Service) RemovePassword(ctx context.Context, userID uuid.UUID, currentPassword string) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
-		if errors.Is(err, repository.ErrUserNotFound) {
-			return Tokens{}, ErrInvalidCredentials
-		}
-		return Tokens{}, err
+		return err
 	}
-
-	err = bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(credentials.Password))
-	if err != nil {
-		return Tokens{}, ErrInvalidCredentials
+	if !user.HasPassword() {
+		return nil
 	}
-
-	if !u.EmailVerified {
-		return Tokens{}, ErrEmailNotVerified
+	if err := user.ComparePasswords(currentPassword); err != nil {
+		return ErrInvalidPassword
 	}
-
-	claims := s.authenticator.GenerateClaims(u)
-
-	accessToken, err := s.authenticator.GenerateToken(claims)
-	if err != nil {
-		return Tokens{}, err
-	}
-	refreshToken, err := s.refreshRepo.Issue(ctx, u.ID)
-	if err != nil {
-		return Tokens{}, err
-	}
-
-	return Tokens{
-		AccessToken:  accessToken,
-		RefreshToken: refreshToken,
-	}, nil
+	return s.userRepo.ClearPassword(ctx, userID)
 }
 
 func (s *Service) Logout(ctx context.Context, refreshToken string) error {
@@ -232,19 +249,44 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (Tokens, err
 		return Tokens{}, err
 	}
 
+	return s.issueTokens(ctx, user)
+}
+
+func (s *Service) issueAuthResult(ctx context.Context, user model.User) (AuthResult, error) {
+	tokens, err := s.issueTokens(ctx, user)
+	if err != nil {
+		return AuthResult{}, err
+	}
+	return AuthResult{
+		AccessToken:  tokens.AccessToken,
+		RefreshToken: tokens.RefreshToken,
+		NeedUsername: !user.OnboardingComplete(),
+		NeedPassword: false,
+	}, nil
+}
+
+func (s *Service) issueTokens(ctx context.Context, user model.User) (Tokens, error) {
 	claims := s.authenticator.GenerateClaims(user)
 
-	newAccessToken, err := s.authenticator.GenerateToken(claims)
+	accessToken, err := s.authenticator.GenerateToken(claims)
 	if err != nil {
 		return Tokens{}, err
 	}
-	newRefreshToken, err := s.refreshRepo.Issue(ctx, userID)
+	refreshToken, err := s.refreshRepo.Issue(ctx, user.ID)
 	if err != nil {
 		return Tokens{}, err
 	}
 
 	return Tokens{
-		AccessToken:  newAccessToken,
-		RefreshToken: newRefreshToken,
+		AccessToken:  accessToken,
+		RefreshToken: refreshToken,
 	}, nil
+}
+
+func (s *Service) generateVerificationCode() string {
+	n, err := rand.Int(rand.Reader, big.NewInt(1000000))
+	if err != nil {
+		return "000000"
+	}
+	return fmt.Sprintf("%06d", n)
 }

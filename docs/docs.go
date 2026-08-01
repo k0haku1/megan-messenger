@@ -15,8 +15,41 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/auth/login": {
+        "/auth/logout": {
             "post": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Logout a user",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/onboarding/username": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "consumes": [
                     "application/json"
                 ],
@@ -26,15 +59,15 @@ const docTemplate = `{
                 "tags": [
                     "auth"
                 ],
-                "summary": "Login a user",
+                "summary": "Complete onboarding username",
                 "parameters": [
                     {
-                        "description": "Login credentials",
+                        "description": "Username",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginCredentials"
+                            "$ref": "#/definitions/auth.SetUsernameRequest"
                         }
                     }
                 ],
@@ -42,7 +75,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/auth.Tokens"
+                            "$ref": "#/definitions/auth.CompleteUsernameResponse"
                         }
                     },
                     "400": {
@@ -66,21 +99,241 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/logout": {
+        "/auth/password": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
-                "summary": "Logout a user",
+                "summary": "Set or change cloud password",
+                "parameters": [
+                    {
+                        "description": "Password",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.SetPasswordRequest"
+                        }
+                    }
+                ],
                 "responses": {
-                    "200": {
-                        "description": "OK"
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Remove cloud password",
+                "parameters": [
+                    {
+                        "description": "Current password",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.RemovePasswordRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/password/verify": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify cloud password challenge",
+                "parameters": [
+                    {
+                        "description": "Challenge and password",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.VerifyPasswordChallengeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AuthResult"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/phone/start": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Start phone auth (send OTP)",
+                "parameters": [
+                    {
+                        "description": "Phone",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.StartPhoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/auth/phone/verify": {
+            "post": {
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "Verify phone OTP",
+                "parameters": [
+                    {
+                        "description": "Phone and code",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/auth.VerifyPhoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/auth.AuthResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
                         "schema": {
                             "$ref": "#/definitions/httputil.ErrorResponse"
                         }
@@ -112,132 +365,6 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/register": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Register a new user",
-                "parameters": [
-                    {
-                        "description": "Registration credentials",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/auth.RegisterCredentials"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/verify": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Verify email",
-                "parameters": [
-                    {
-                        "description": "Verification credentials",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/auth.VerifyEmailRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/auth/verify/resend": {
-            "post": {
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "auth"
-                ],
-                "summary": "Resend verification code",
-                "parameters": [
-                    {
-                        "description": "Email",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/auth.ResendVerificationCodeRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
                         "schema": {
                             "$ref": "#/definitions/httputil.ErrorResponse"
                         }
@@ -562,13 +689,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/model.User"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
+                            "$ref": "#/definitions/user.MeResponse"
                         }
                     },
                     "401": {
@@ -630,157 +751,88 @@ const docTemplate = `{
                     }
                 }
             }
-        },
-        "/users/me/email": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "user"
-                ],
-                "summary": "Update user email",
-                "parameters": [
-                    {
-                        "description": "Email update request",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/user.UpdateEmailRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/me/password": {
-            "put": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "consumes": [
-                    "application/json"
-                ],
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "user"
-                ],
-                "summary": "Change user password",
-                "parameters": [
-                    {
-                        "description": "Password change request",
-                        "name": "input",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/user.UpdatePasswordRequest"
-                        }
-                    }
-                ],
-                "responses": {
-                    "204": {
-                        "description": "No Content"
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/httputil.ErrorResponse"
-                        }
-                    }
-                }
-            }
         }
     },
     "definitions": {
-        "auth.LoginCredentials": {
+        "auth.AuthResult": {
             "type": "object",
-            "required": [
-                "login",
-                "password"
-            ],
             "properties": {
-                "login": {
-                    "type": "string",
-                    "maxLength": 255,
-                    "minLength": 3
+                "accessToken": {
+                    "type": "string"
                 },
-                "password": {
-                    "type": "string",
-                    "maxLength": 72,
-                    "minLength": 6
+                "challengeToken": {
+                    "type": "string"
+                },
+                "needPassword": {
+                    "type": "boolean"
+                },
+                "needUsername": {
+                    "type": "boolean"
+                },
+                "refreshToken": {
+                    "type": "string"
                 }
             }
         },
-        "auth.RegisterCredentials": {
+        "auth.CompleteUsernameResponse": {
+            "type": "object",
+            "properties": {
+                "accessToken": {
+                    "type": "string"
+                },
+                "challengeToken": {
+                    "type": "string"
+                },
+                "needPassword": {
+                    "type": "boolean"
+                },
+                "needUsername": {
+                    "type": "boolean"
+                },
+                "refreshToken": {
+                    "type": "string"
+                },
+                "user": {
+                    "type": "object",
+                    "additionalProperties": {}
+                }
+            }
+        },
+        "auth.RemovePasswordRequest": {
             "type": "object",
             "required": [
-                "confirmPassword",
-                "email",
-                "password",
-                "username"
+                "currentPassword"
             ],
             "properties": {
-                "confirmPassword": {
+                "currentPassword": {
                     "type": "string",
                     "maxLength": 72,
-                    "minLength": 6
-                },
-                "email": {
-                    "type": "string",
-                    "maxLength": 255
+                    "minLength": 4
+                }
+            }
+        },
+        "auth.SetPasswordRequest": {
+            "type": "object",
+            "required": [
+                "password"
+            ],
+            "properties": {
+                "currentPassword": {
+                    "type": "string"
                 },
                 "password": {
                     "type": "string",
                     "maxLength": 72,
-                    "minLength": 6
-                },
+                    "minLength": 4
+                }
+            }
+        },
+        "auth.SetUsernameRequest": {
+            "type": "object",
+            "required": [
+                "username"
+            ],
+            "properties": {
                 "username": {
                     "type": "string",
                     "maxLength": 32,
@@ -788,23 +840,19 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.ResendVerificationCodeRequest": {
+        "auth.StartPhoneRequest": {
             "type": "object",
             "required": [
-                "email"
+                "phone"
             ],
             "properties": {
-                "email": {
+                "phone": {
                     "type": "string"
                 }
             }
         },
         "auth.Tokens": {
             "type": "object",
-            "required": [
-                "accessToken",
-                "refreshToken"
-            ],
             "properties": {
                 "accessToken": {
                     "type": "string"
@@ -814,17 +862,34 @@ const docTemplate = `{
                 }
             }
         },
-        "auth.VerifyEmailRequest": {
+        "auth.VerifyPasswordChallengeRequest": {
+            "type": "object",
+            "required": [
+                "challengeToken",
+                "password"
+            ],
+            "properties": {
+                "challengeToken": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string",
+                    "maxLength": 72,
+                    "minLength": 4
+                }
+            }
+        },
+        "auth.VerifyPhoneRequest": {
             "type": "object",
             "required": [
                 "code",
-                "email"
+                "phone"
             ],
             "properties": {
                 "code": {
                     "type": "string"
                 },
-                "email": {
+                "phone": {
                     "type": "string"
                 }
             }
@@ -1027,57 +1092,26 @@ const docTemplate = `{
                 }
             }
         },
-        "model.User": {
+        "user.MeResponse": {
             "type": "object",
-            "required": [
-                "email",
-                "emailVerified",
-                "id",
-                "username"
-            ],
             "properties": {
                 "avatarUrl": {
                     "type": "string"
                 },
-                "email": {
-                    "type": "string"
-                },
-                "emailVerified": {
+                "hasPassword": {
                     "type": "boolean"
                 },
                 "id": {
                     "type": "string"
                 },
+                "onboardingComplete": {
+                    "type": "boolean"
+                },
+                "phone": {
+                    "type": "string"
+                },
                 "username": {
                     "type": "string"
-                }
-            }
-        },
-        "user.UpdateEmailRequest": {
-            "type": "object",
-            "required": [
-                "email"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                }
-            }
-        },
-        "user.UpdatePasswordRequest": {
-            "type": "object",
-            "required": [
-                "currentPassword",
-                "newPassword"
-            ],
-            "properties": {
-                "currentPassword": {
-                    "type": "string",
-                    "minLength": 6
-                },
-                "newPassword": {
-                    "type": "string",
-                    "minLength": 6
                 }
             }
         }

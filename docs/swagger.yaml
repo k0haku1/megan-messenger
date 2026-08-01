@@ -1,47 +1,68 @@
 definitions:
-  auth.LoginCredentials:
+  auth.AuthResult:
     properties:
-      login:
-        maxLength: 255
-        minLength: 3
+      accessToken:
         type: string
-      password:
+      challengeToken:
+        type: string
+      needPassword:
+        type: boolean
+      needUsername:
+        type: boolean
+      refreshToken:
+        type: string
+    type: object
+  auth.CompleteUsernameResponse:
+    properties:
+      accessToken:
+        type: string
+      challengeToken:
+        type: string
+      needPassword:
+        type: boolean
+      needUsername:
+        type: boolean
+      refreshToken:
+        type: string
+      user:
+        additionalProperties: {}
+        type: object
+    type: object
+  auth.RemovePasswordRequest:
+    properties:
+      currentPassword:
         maxLength: 72
-        minLength: 6
+        minLength: 4
         type: string
     required:
-    - login
-    - password
+    - currentPassword
     type: object
-  auth.RegisterCredentials:
+  auth.SetPasswordRequest:
     properties:
-      confirmPassword:
-        maxLength: 72
-        minLength: 6
-        type: string
-      email:
-        maxLength: 255
+      currentPassword:
         type: string
       password:
         maxLength: 72
-        minLength: 6
+        minLength: 4
         type: string
+    required:
+    - password
+    type: object
+  auth.SetUsernameRequest:
+    properties:
       username:
         maxLength: 32
         minLength: 3
         type: string
     required:
-    - confirmPassword
-    - email
-    - password
     - username
     type: object
-  auth.ResendVerificationCodeRequest:
+  auth.StartPhoneRequest:
     properties:
-      email:
+      phone:
         type: string
     required:
-    - email
+    - phone
     type: object
   auth.Tokens:
     properties:
@@ -49,19 +70,28 @@ definitions:
         type: string
       refreshToken:
         type: string
-    required:
-    - accessToken
-    - refreshToken
     type: object
-  auth.VerifyEmailRequest:
+  auth.VerifyPasswordChallengeRequest:
+    properties:
+      challengeToken:
+        type: string
+      password:
+        maxLength: 72
+        minLength: 4
+        type: string
+    required:
+    - challengeToken
+    - password
+    type: object
+  auth.VerifyPhoneRequest:
     properties:
       code:
         type: string
-      email:
+      phone:
         type: string
     required:
     - code
-    - email
+    - phone
     type: object
   conversation.CreateDMRequest:
     properties:
@@ -195,81 +225,26 @@ definitions:
       username:
         type: string
     type: object
-  model.User:
+  user.MeResponse:
     properties:
       avatarUrl:
         type: string
-      email:
-        type: string
-      emailVerified:
+      hasPassword:
         type: boolean
       id:
         type: string
+      onboardingComplete:
+        type: boolean
+      phone:
+        type: string
       username:
         type: string
-    required:
-    - email
-    - emailVerified
-    - id
-    - username
-    type: object
-  user.UpdateEmailRequest:
-    properties:
-      email:
-        type: string
-    required:
-    - email
-    type: object
-  user.UpdatePasswordRequest:
-    properties:
-      currentPassword:
-        minLength: 6
-        type: string
-      newPassword:
-        minLength: 6
-        type: string
-    required:
-    - currentPassword
-    - newPassword
     type: object
 info:
   contact: {}
   title: Megan Messenger API
   version: 1.0.0
 paths:
-  /auth/login:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Login credentials
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/auth.LoginCredentials'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/auth.Tokens'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-      summary: Login a user
-      tags:
-      - auth
   /auth/logout:
     post:
       produces:
@@ -288,6 +263,199 @@ paths:
       summary: Logout a user
       tags:
       - auth
+  /auth/onboarding/username:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Username
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.SetUsernameRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.CompleteUsernameResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Complete onboarding username
+      tags:
+      - auth
+  /auth/password:
+    delete:
+      consumes:
+      - application/json
+      parameters:
+      - description: Current password
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.RemovePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Remove cloud password
+      tags:
+      - auth
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Password
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.SetPasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Set or change cloud password
+      tags:
+      - auth
+  /auth/password/verify:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Challenge and password
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.VerifyPasswordChallengeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.AuthResult'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      summary: Verify cloud password challenge
+      tags:
+      - auth
+  /auth/phone/start:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Phone
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.StartPhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      summary: Start phone auth (send OTP)
+      tags:
+      - auth
+  /auth/phone/verify:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Phone and code
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/auth.VerifyPhoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/auth.AuthResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      summary: Verify phone OTP
+      tags:
+      - auth
   /auth/refresh:
     post:
       produces:
@@ -302,87 +470,6 @@ paths:
           schema:
             $ref: '#/definitions/httputil.ErrorResponse'
       summary: Refresh access token
-      tags:
-      - auth
-  /auth/register:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Registration credentials
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/auth.RegisterCredentials'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-      summary: Register a new user
-      tags:
-      - auth
-  /auth/verify:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Verification credentials
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/auth.VerifyEmailRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-      summary: Verify email
-      tags:
-      - auth
-  /auth/verify/resend:
-    post:
-      consumes:
-      - application/json
-      parameters:
-      - description: Email
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/auth.ResendVerificationCodeRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-      summary: Resend verification code
       tags:
       - auth
   /conversations:
@@ -580,11 +667,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/model.User'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
+            $ref: '#/definitions/user.MeResponse'
         "401":
           description: Unauthorized
           schema:
@@ -624,72 +707,6 @@ paths:
       security:
       - BearerAuth: []
       summary: Upload user avatar
-      tags:
-      - user
-  /users/me/email:
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: Email update request
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/user.UpdateEmailRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Update user email
-      tags:
-      - user
-  /users/me/password:
-    put:
-      consumes:
-      - application/json
-      parameters:
-      - description: Password change request
-        in: body
-        name: input
-        required: true
-        schema:
-          $ref: '#/definitions/user.UpdatePasswordRequest'
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-        "401":
-          description: Unauthorized
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/httputil.ErrorResponse'
-      security:
-      - BearerAuth: []
-      summary: Change user password
       tags:
       - user
 securityDefinitions:

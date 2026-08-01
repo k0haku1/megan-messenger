@@ -6,7 +6,6 @@ import (
 	"image"
 	"image/jpeg"
 	"log/slog"
-	"megan-messenger/internal/auth"
 	"megan-messenger/internal/model"
 	"megan-messenger/internal/repository"
 	"mime/multipart"
@@ -19,15 +18,13 @@ import (
 
 type Service struct {
 	repo             repository.UserRepository
-	authService      *auth.Service
 	avatarsUploadDir string
 }
 
-func NewService(repo repository.UserRepository, authService *auth.Service, avatarsUploadDir string) *Service {
+func NewService(repo repository.UserRepository, avatarsUploadDir string) *Service {
 	return &Service{
-		repo,
-		authService,
-		avatarsUploadDir,
+		repo:             repo,
+		avatarsUploadDir: avatarsUploadDir,
 	}
 }
 
@@ -37,35 +34,6 @@ func (s *Service) GetUser(ctx context.Context, id uuid.UUID) (model.User, error)
 
 func (s *Service) UpdateAvatar(ctx context.Context, id uuid.UUID, url string) error {
 	return s.repo.ChangeAvatar(ctx, id, url)
-}
-
-func (s *Service) UpdateEmail(ctx context.Context, id uuid.UUID, email string) error {
-	exists, err := s.repo.CheckEmailExists(ctx, email)
-	if err != nil {
-		return err
-	}
-	if exists {
-		return ErrEmailAlreadyExists
-	}
-
-	return s.authService.SendEmailChangeVerification(ctx, id, email)
-}
-
-func (s *Service) UpdatePassword(ctx context.Context, id uuid.UUID, currentPassword, newPassword string) error {
-	user, err := s.repo.GetByID(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	if err := user.ComparePasswords(currentPassword); err != nil {
-		return ErrInvalidCurrentPassword
-	}
-
-	if err := user.ChangePassword(newPassword); err != nil {
-		return err
-	}
-
-	return s.repo.UpdatePassword(ctx, user.ID, user.PasswordHash)
 }
 
 func (s *Service) UploadAvatar(file multipart.File) (string, error) {

@@ -5,8 +5,9 @@ import (
 )
 
 type UserClaims struct {
-	Email           string `json:"email"`
-	IsVerifiedEmail bool   `json:"isVerifiedEmail"`
+	Phone              string `json:"phone"`
+	Username           string `json:"username,omitempty"`
+	OnboardingComplete bool   `json:"onboardingComplete"`
 
 	jwt.RegisteredClaims
 }

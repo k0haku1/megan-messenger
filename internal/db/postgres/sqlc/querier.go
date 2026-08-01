@@ -13,30 +13,30 @@ import (
 
 type Querier interface {
 	AddConversationMember(ctx context.Context, arg AddConversationMemberParams) error
+	ClearUserPassword(ctx context.Context, id uuid.UUID) error
 	ConversationExists(ctx context.Context, id uuid.UUID) (bool, error)
 	CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error)
 	CreateDMPair(ctx context.Context, arg CreateDMPairParams) error
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
-	DeleteEmailVerificationCode(ctx context.Context, userID uuid.UUID) error
+	DeletePhoneOTP(ctx context.Context, phone string) error
 	FindDMConversation(ctx context.Context, arg FindDMConversationParams) (uuid.UUID, error)
 	GetConversation(ctx context.Context, id uuid.UUID) (Conversation, error)
 	GetConversationBySlug(ctx context.Context, slug pgtype.Text) (Conversation, error)
-	GetEmailVerificationCode(ctx context.Context, userID uuid.UUID) (EmailVerificationCode, error)
-	GetEmailVerificationCodeByEmail(ctx context.Context, pendingEmail pgtype.Text) (EmailVerificationCode, error)
 	GetMessagesPaging(ctx context.Context, arg GetMessagesPagingParams) ([]GetMessagesPagingRow, error)
+	GetPhoneOTP(ctx context.Context, phone string) (PhoneOtpCode, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
-	GetUserByLogin(ctx context.Context, login string) (User, error)
+	GetUserByPhone(ctx context.Context, phone string) (User, error)
+	GetUserByUsername(ctx context.Context, username pgtype.Text) (User, error)
 	GetUserConversations(ctx context.Context, userID uuid.UUID) ([]Conversation, error)
-	IncrementVerificationAttempts(ctx context.Context, userID uuid.UUID) error
+	IncrementPhoneOTPAttempts(ctx context.Context, phone string) error
 	IsConversationMember(ctx context.Context, arg IsConversationMemberParams) (bool, error)
-	MarkEmailVerified(ctx context.Context, id uuid.UUID) error
+	SetUsername(ctx context.Context, arg SetUsernameParams) error
 	UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) error
-	UpdateUserEmail(ctx context.Context, arg UpdateUserEmailParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
-	UpsertEmailVerificationCode(ctx context.Context, arg UpsertEmailVerificationCodeParams) error
-	UserWithEmailExists(ctx context.Context, email string) (bool, error)
-	UserWithUsernameExists(ctx context.Context, username string) (bool, error)
+	UpsertPhoneOTP(ctx context.Context, arg UpsertPhoneOTPParams) error
+	UserWithPhoneExists(ctx context.Context, phone string) (bool, error)
+	UserWithUsernameExists(ctx context.Context, username pgtype.Text) (bool, error)
 }
 
 var _ Querier = (*Queries)(nil)

@@ -31,7 +31,7 @@ func NewMessage(conversationID uuid.UUID, content string, sender User) (Message,
 		Content:        content,
 		Sender: MessageSender{
 			ID:        sender.ID,
-			Username:  sender.Username,
+			Username:  sender.Username, // empty until onboarding completes
 			AvatarURL: sender.AvatarURL,
 		},
 		CreatedAt: time.Now(),

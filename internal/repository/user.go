@@ -4,27 +4,34 @@ import (
 	"context"
 	"errors"
 	"megan-messenger/internal/model"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 var ErrUniqueAlreadyExists = errors.New("value already exists for unique field")
 var ErrUserNotFound = errors.New("user not found")
-var ErrVerificationCodeNotFound = errors.New("verification code not found")
+var ErrOTPNotFound = errors.New("otp not found")
 
 type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (model.User, error)
-	GetByLogin(ctx context.Context, login string) (model.User, error)
-	ChangeAvatar(ctx context.Context, id uuid.UUID, url string) error
-	UpdateEmail(ctx context.Context, id uuid.UUID, email string) error
-	UpdatePassword(ctx context.Context, id uuid.UUID, newPasswordHash string) error
-	CheckUsernameExists(ctx context.Context, username string) (bool, error)
-	CheckEmailExists(ctx context.Context, email string) (bool, error)
+	GetByPhone(ctx context.Context, phone string) (model.User, error)
+	GetByUsername(ctx context.Context, username string) (model.User, error)
 	Create(ctx context.Context, u model.User) (model.User, error)
-	SaveVerificationCode(ctx context.Context, userID uuid.UUID, email, codeHash string, duration string) error
-	GetVerificationCode(ctx context.Context, userID uuid.UUID) (model.EmailVerificationCode, error)
-	GetVerificationCodeByEmail(ctx context.Context, email string) (model.EmailVerificationCode, error)
-	MarkEmailVerified(ctx context.Context, userID uuid.UUID) error
-	IncrementVerificationAttempts(ctx context.Context, userID uuid.UUID) error
-	DeleteVerificationCode(ctx context.Context, userID uuid.UUID) error
+	SetUsername(ctx context.Context, id uuid.UUID, username string) error
+	UpdatePassword(ctx context.Context, id uuid.UUID, newPasswordHash string) error
+	ClearPassword(ctx context.Context, id uuid.UUID) error
+	ChangeAvatar(ctx context.Context, id uuid.UUID, url string) error
+	CheckUsernameExists(ctx context.Context, username string) (bool, error)
+	CheckPhoneExists(ctx context.Context, phone string) (bool, error)
+
+	UpsertPhoneOTP(ctx context.Context, phone, codeHash string, expiresAt, sentAt time.Time) error
+	GetPhoneOTP(ctx context.Context, phone string) (model.PhoneOTP, error)
+	IncrementPhoneOTPAttempts(ctx context.Context, phone string) error
+	DeletePhoneOTP(ctx context.Context, phone string) error
+}
+
+type PasswordChallengeRepository interface {
+	Issue(ctx context.Context, userID uuid.UUID) (string, error)
+	Consume(ctx context.Context, token string) (uuid.UUID, error)
 }

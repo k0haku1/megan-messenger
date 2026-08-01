@@ -22,8 +22,9 @@ func (a *Authenticator) GenerateClaims(u model.User) *UserClaims {
 	now := time.Now()
 
 	return &UserClaims{
-		Email:           u.Email,
-		IsVerifiedEmail: u.EmailVerified,
+		Phone:              u.Phone,
+		Username:           u.Username,
+		OnboardingComplete: u.OnboardingComplete(),
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    a.issuer,
 			Subject:   u.ID.String(),
