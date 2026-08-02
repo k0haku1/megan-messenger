@@ -10,26 +10,26 @@
 
     <section class="profile-view__section" aria-label="Настройки">
       <ProfileNavRow
-        icon="@"
+        icon="username"
         label="Username"
         :value="usernameValue"
         @select="profileUi.openView('username')"
       />
       <ProfileNavRow
-        icon="◈"
+        icon="privacy"
         label="Конфиденциальность"
         :value="privacyStatus"
         @select="profileUi.openView('privacy')"
       />
       <ProfileNavRow
-        icon="◑"
+        icon="theme"
         label="Тема оформления"
         description="Светлая, тёмная или как в системе"
         :value="themeLabel"
         @select="profileUi.openView('theme')"
       />
       <ProfileNavRow
-        icon="◌"
+        icon="password"
         label="Облачный пароль"
         description="Дополнительная защита после SMS"
         :value="passwordStatus"

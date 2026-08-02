@@ -1,6 +1,8 @@
 <template>
   <button class="profile-nav-row" type="button" @click="$emit('select')">
-    <span v-if="icon" class="profile-nav-row__icon" aria-hidden="true">{{ icon }}</span>
+    <span v-if="icon" class="profile-nav-row__icon">
+      <AppIcon :name="icon" size="sm" />
+    </span>
     <span class="profile-nav-row__body">
       <strong>{{ label }}</strong>
       <small v-if="description">{{ description }}</small>
@@ -11,8 +13,11 @@
 </template>
 
 <script setup lang="ts">
+import AppIcon from '@/shared/ui/AppIcon.vue'
+import type { AppIconName } from '@/shared/ui/app-icon.types'
+
 defineProps<{
-  icon?: string
+  icon?: AppIconName
   label: string
   description?: string
   value?: string

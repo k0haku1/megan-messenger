@@ -571,7 +571,6 @@ button {
   place-items: center;
   width: 28px;
   color: var(--color-accent);
-  font-size: 18px;
 }
 .profile-nav-row__body {
   display: flex;
