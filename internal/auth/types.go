@@ -15,7 +15,7 @@ type VerifyPasswordChallengeRequest struct {
 }
 
 type SetUsernameRequest struct {
-	Username string `json:"username" validate:"required,min=3,alphanum,max=32"`
+	Username string `json:"username" validate:"required,min=5,max=32"`
 }
 
 type SetPasswordRequest struct {

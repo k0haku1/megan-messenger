@@ -24,12 +24,14 @@ func NewUserRepository(queries db.Querier) repository.UserRepository {
 
 func mapUser(user db.User) model.User {
 	return model.User{
-		ID:           user.ID,
-		Phone:        user.Phone,
-		Username:     textOrEmpty(user.Username),
-		PasswordHash: textOrEmpty(user.PasswordHash),
-		AvatarURL:    textOrEmpty(user.AvatarUrl),
-		CreatedAt:    user.CreatedAt.Time,
+		ID:                 user.ID,
+		Phone:              user.Phone,
+		Username:           textOrEmpty(user.Username),
+		PasswordHash:       textOrEmpty(user.PasswordHash),
+		AvatarURL:          textOrEmpty(user.AvatarUrl),
+		UsernameSearchable: user.UsernameSearchable,
+		DMPolicy:           model.DMPolicy(user.DmPolicy),
+		CreatedAt:          user.CreatedAt.Time,
 	}
 }
 
@@ -56,7 +58,7 @@ func (r *UserRepository) GetByPhone(ctx context.Context, phone string) (model.Us
 }
 
 func (r *UserRepository) GetByUsername(ctx context.Context, username string) (model.User, error) {
-	u, err := r.queries.GetUserByUsername(ctx, pgtype.Text{String: username, Valid: true})
+	u, err := r.queries.GetUserByUsername(ctx, username)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return model.User{}, repository.ErrUserNotFound
@@ -115,7 +117,7 @@ func (r *UserRepository) ChangeAvatar(ctx context.Context, id uuid.UUID, url str
 }
 
 func (r *UserRepository) CheckUsernameExists(ctx context.Context, username string) (bool, error) {
-	return r.queries.UserWithUsernameExists(ctx, pgtype.Text{String: username, Valid: true})
+	return r.queries.UserWithUsernameExists(ctx, username)
 }
 
 func (r *UserRepository) CheckPhoneExists(ctx context.Context, phone string) (bool, error) {
@@ -158,4 +160,58 @@ func (r *UserRepository) IncrementPhoneOTPAttempts(ctx context.Context, phone st
 
 func (r *UserRepository) DeletePhoneOTP(ctx context.Context, phone string) error {
 	return r.queries.DeletePhoneOTP(ctx, phone)
+}
+
+func (r *UserRepository) SearchByUsernamePrefix(
+	ctx context.Context,
+	prefix string,
+	excludeUserID uuid.UUID,
+	limit int32,
+) ([]model.UserSearchResult, error) {
+	rows, err := r.queries.SearchUsersByUsernamePrefix(ctx, db.SearchUsersByUsernamePrefixParams{
+		Prefix:        prefix,
+		ExcludeUserID: excludeUserID,
+		ResultLimit:   limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]model.UserSearchResult, len(rows))
+	for i, row := range rows {
+		result[i] = model.UserSearchResult{
+			ID:        row.ID,
+			Username:  textOrEmpty(row.Username),
+			AvatarURL: textOrEmpty(row.AvatarUrl),
+		}
+	}
+
+	return result, nil
+}
+
+func (r *UserRepository) UpdateUsername(ctx context.Context, id uuid.UUID, username string) error {
+	err := r.queries.UpdateUsername(ctx, db.UpdateUsernameParams{
+		Username: pgtype.Text{String: username, Valid: true},
+		ID:       id,
+	})
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return repository.ErrUniqueAlreadyExists
+		}
+	}
+	return err
+}
+
+func (r *UserRepository) UpdatePrivacy(
+	ctx context.Context,
+	id uuid.UUID,
+	searchable bool,
+	policy model.DMPolicy,
+) error {
+	return r.queries.UpdateUserPrivacy(ctx, db.UpdateUserPrivacyParams{
+		UsernameSearchable: searchable,
+		DmPolicy:           string(policy),
+		ID:                 id,
+	})
 }

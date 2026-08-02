@@ -2,6 +2,7 @@ import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 import { ApiError } from '@/shared/api/http'
 import { authApi } from '@/entities/session/api/auth.api'
+import { normalizeUsernameQuery, USERNAME_HINT } from '@/entities/user/lib/username'
 import { useSessionStore } from '@/entities/session/model/session.store'
 import { router } from '@/app/router'
 
@@ -58,7 +59,7 @@ export const useAuthFlowStore = defineStore('auth-flow', () => {
       case 'password':
         return 'Для этого аккаунта включена дополнительная защита'
       case 'username':
-        return 'Username нужен, чтобы вас могли найти и написать'
+        return USERNAME_HINT
     }
   })
 
@@ -172,7 +173,7 @@ export const useAuthFlowStore = defineStore('auth-flow', () => {
     resetErrors()
     loading.value = true
     try {
-      const result = await authApi.completeUsername(username.value.trim())
+      const result = await authApi.completeUsername(normalizeUsernameQuery(username.value))
       session.applyAuthResult(result)
       if (result.user) session.setUser(result.user)
       else await session.refreshProfile()

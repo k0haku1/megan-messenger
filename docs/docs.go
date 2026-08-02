@@ -405,13 +405,14 @@ const docTemplate = `{
                 }
             }
         },
-        "/conversations/dm": {
+        "/conversations/dm/messages": {
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
+                "description": "Creates the DM conversation if it does not exist yet",
                 "consumes": [
                     "application/json"
                 ],
@@ -421,23 +422,23 @@ const docTemplate = `{
                 "tags": [
                     "conversation"
                 ],
-                "summary": "Create or get a direct message conversation",
+                "summary": "Send the first message in a direct conversation",
                 "parameters": [
                     {
-                        "description": "DM params",
+                        "description": "DM message params",
                         "name": "input",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/conversation.CreateDMRequest"
+                            "$ref": "#/definitions/conversation.SendDMMessageRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/model.Conversation"
+                            "$ref": "#/definitions/conversation.SendDMMessageResponse"
                         }
                     },
                     "400": {
@@ -448,6 +449,24 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "$ref": "#/definitions/httputil.ErrorResponse"
                         }
@@ -615,6 +634,79 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "message"
+                ],
+                "summary": "Send a message in an existing conversation",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Conversation ID",
+                        "name": "conversationID",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Message params",
+                        "name": "input",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/message.SendMessageRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/message.SendMessageResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/httputil.ErrorResponse"
+                        }
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity",
                         "schema": {
                             "$ref": "#/definitions/httputil.ErrorResponse"
                         }
@@ -836,7 +928,7 @@ const docTemplate = `{
                 "username": {
                     "type": "string",
                     "maxLength": 32,
-                    "minLength": 3
+                    "minLength": 5
                 }
             }
         },
@@ -894,17 +986,6 @@ const docTemplate = `{
                 }
             }
         },
-        "conversation.CreateDMRequest": {
-            "type": "object",
-            "required": [
-                "userId"
-            ],
-            "properties": {
-                "userId": {
-                    "type": "string"
-                }
-            }
-        },
         "conversation.CreateGroupRequest": {
             "type": "object",
             "required": [
@@ -954,6 +1035,38 @@ const docTemplate = `{
                 }
             }
         },
+        "conversation.SendDMMessageRequest": {
+            "type": "object",
+            "required": [
+                "content"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "maxLength": 5000,
+                    "minLength": 1
+                },
+                "userId": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string",
+                    "maxLength": 32,
+                    "minLength": 5
+                }
+            }
+        },
+        "conversation.SendDMMessageResponse": {
+            "type": "object",
+            "properties": {
+                "conversation": {
+                    "$ref": "#/definitions/model.Conversation"
+                },
+                "message": {
+                    "$ref": "#/definitions/model.Message"
+                }
+            }
+        },
         "httputil.ErrorBody": {
             "type": "object",
             "properties": {
@@ -988,6 +1101,27 @@ const docTemplate = `{
                 }
             }
         },
+        "message.SendMessageRequest": {
+            "type": "object",
+            "required": [
+                "content"
+            ],
+            "properties": {
+                "content": {
+                    "type": "string",
+                    "maxLength": 5000,
+                    "minLength": 1
+                }
+            }
+        },
+        "message.SendMessageResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "$ref": "#/definitions/model.Message"
+                }
+            }
+        },
         "model.Conversation": {
             "type": "object",
             "required": [
@@ -1006,6 +1140,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/model.ConversationMember"
                     }
+                },
+                "peer": {
+                    "$ref": "#/definitions/model.ConversationPeer"
                 },
                 "slug": {
                     "type": "string"
@@ -1036,6 +1173,20 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "userId": {
+                    "type": "string"
+                }
+            }
+        },
+        "model.ConversationPeer": {
+            "type": "object",
+            "properties": {
+                "avatarUrl": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "username": {
                     "type": "string"
                 }
             }
@@ -1098,6 +1249,9 @@ const docTemplate = `{
                 "avatarUrl": {
                     "type": "string"
                 },
+                "dmPolicy": {
+                    "type": "string"
+                },
                 "hasPassword": {
                     "type": "boolean"
                 },
@@ -1112,6 +1266,9 @@ const docTemplate = `{
                 },
                 "username": {
                     "type": "string"
+                },
+                "usernameSearchable": {
+                    "type": "boolean"
                 }
             }
         }

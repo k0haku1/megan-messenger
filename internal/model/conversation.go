@@ -20,8 +20,15 @@ type Conversation struct {
 	Type      ConversationType     `json:"type" binding:"required"`
 	Title     string               `json:"title,omitempty"`
 	Slug      string               `json:"slug,omitempty"`
+	Peer      *ConversationPeer    `json:"peer,omitempty"`
 	Members   []ConversationMember `json:"members,omitempty"`
 	CreatedAt time.Time            `json:"createdAt"`
+}
+
+type ConversationPeer struct {
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	AvatarURL string    `json:"avatarUrl,omitempty"`
 }
 
 func NewGroupConversation(title string) (Conversation, error) {

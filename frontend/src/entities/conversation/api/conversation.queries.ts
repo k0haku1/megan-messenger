@@ -1,31 +1,34 @@
 import { useQuery } from '@tanstack/vue-query'
-import { computed, watch } from 'vue'
+import { computed } from 'vue'
 import { conversationApi } from './conversation.api'
-import { replaceConversations } from './conversation.repository'
-import { db } from '@/shared/model/db'
-import type { SyncState } from '@/shared/model/db'
 import { useSessionStore } from '@/entities/session/model/session.store'
+import { queryKeys } from '@/shared/api/query-keys'
+import type { Conversation } from '@/entities/conversation/model/types'
 
-const conversationsKey = ['conversations'] as const
+function sortConversations(conversations: Conversation[]): Conversation[] {
+  return [...conversations].sort((left, right) => {
+    const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0
+    const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0
+    return rightTime - leftTime
+  })
+}
 
-async function setSyncState(state: SyncState): Promise<void> { await db.syncStates.put(state) }
-
-/** Fetches only into Dexie. Query data is intentionally not exposed to the UI. */
-export function useConversationsSync() {
+export function useConversations() {
   const session = useSessionStore()
   const enabled = computed(() => session.isAuthenticated && !session.needsUsername)
 
   const query = useQuery({
-    queryKey: conversationsKey,
+    queryKey: queryKeys.conversations,
     queryFn: conversationApi.list,
     enabled,
   })
 
-  watch(query.fetchStatus, (fetchStatus) => {
-    if (fetchStatus === 'fetching') void setSyncState({ key: 'conversations', status: 'loading', updatedAt: Date.now() })
-  }, { immediate: true })
-  watch(query.data, (data) => { if (data) void replaceConversations(data.conversations).then(() => setSyncState({ key: 'conversations', status: 'success', updatedAt: Date.now() })) }, { immediate: true })
-  watch(query.error, (error) => {
-    if (error) void setSyncState({ key: 'conversations', status: 'error', updatedAt: Date.now(), error: error instanceof Error ? error.message : 'Unknown error' })
-  }, { immediate: true })
+  const conversations = computed(() => sortConversations(query.data.value?.conversations ?? []))
+
+  return {
+    query,
+    conversations,
+    isLoading: computed(() => query.isLoading.value),
+    isError: computed(() => query.isError.value),
+  }
 }

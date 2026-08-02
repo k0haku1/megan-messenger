@@ -137,6 +137,15 @@ func (s *Service) processMessage(ctx context.Context, conversationID uuid.UUID, 
 	return createdMessage, nil
 }
 
+func (s *Service) PublishMessage(ctx context.Context, conversationID uuid.UUID, message model.Message) error {
+	payload, err := json.Marshal(message)
+	if err != nil {
+		return err
+	}
+
+	return s.rdb.Publish(ctx, conversationID.String(), payload).Err()
+}
+
 func (s *Service) handleOutgoing(
 	ctx context.Context,
 	conn *websocket.Conn,

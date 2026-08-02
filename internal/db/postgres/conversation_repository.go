@@ -19,7 +19,7 @@ func NewConversationRepository(queries db.Querier) repository.ConversationReposi
 	return &ConversationRepository{queries: queries}
 }
 
-func mapConversation(row db.Conversation) model.Conversation {
+func mapConversationRow(row db.Conversation) model.Conversation {
 	return model.Conversation{
 		ID:        row.ID,
 		Type:      model.ConversationType(row.Type),
@@ -29,10 +29,30 @@ func mapConversation(row db.Conversation) model.Conversation {
 	}
 }
 
-func mapConversations(rows []db.Conversation) []model.Conversation {
+func mapListedConversation(row db.GetUserConversationsRow) model.Conversation {
+	conv := model.Conversation{
+		ID:        row.ID,
+		Type:      model.ConversationType(row.Type),
+		Title:     textOrEmpty(row.Title),
+		Slug:      textOrEmpty(row.Slug),
+		CreatedAt: row.CreatedAt.Time,
+	}
+
+	if row.PeerID.Valid {
+		conv.Peer = &model.ConversationPeer{
+			ID:        uuid.UUID(row.PeerID.Bytes),
+			Username:  textOrEmpty(row.PeerUsername),
+			AvatarURL: textOrEmpty(row.PeerAvatarUrl),
+		}
+	}
+
+	return conv
+}
+
+func mapConversations(rows []db.GetUserConversationsRow) []model.Conversation {
 	result := make([]model.Conversation, len(rows))
 	for i, row := range rows {
-		result[i] = mapConversation(row)
+		result[i] = mapListedConversation(row)
 	}
 	return result
 }
@@ -53,7 +73,7 @@ func (r *ConversationRepository) GetByID(ctx context.Context, id uuid.UUID) (mod
 		}
 		return model.Conversation{}, err
 	}
-	return mapConversation(row), nil
+	return mapConversationRow(row), nil
 }
 
 func (r *ConversationRepository) GetBySlug(ctx context.Context, slug string) (model.Conversation, error) {
@@ -64,7 +84,7 @@ func (r *ConversationRepository) GetBySlug(ctx context.Context, slug string) (mo
 		}
 		return model.Conversation{}, err
 	}
-	return mapConversation(row), nil
+	return mapConversationRow(row), nil
 }
 
 func (r *ConversationRepository) Create(ctx context.Context, conversation model.Conversation) (model.Conversation, error) {
@@ -78,7 +98,7 @@ func (r *ConversationRepository) Create(ctx context.Context, conversation model.
 	if err != nil {
 		return model.Conversation{}, err
 	}
-	return mapConversation(created), nil
+	return mapConversationRow(created), nil
 }
 
 func (r *ConversationRepository) AddMember(ctx context.Context, conversationID, userID uuid.UUID) error {

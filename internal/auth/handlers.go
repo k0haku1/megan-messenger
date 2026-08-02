@@ -4,6 +4,7 @@ import (
 	"errors"
 	"megan-messenger/internal/httputil"
 	"megan-messenger/internal/model"
+	userpkg "megan-messenger/internal/user"
 	"net/http"
 )
 
@@ -170,6 +171,8 @@ func (h *Handler) CompleteUsername(w http.ResponseWriter, r *http.Request) {
 			httputil.ValidationError(w, map[string]string{"username": err.Error()})
 		case errors.Is(err, ErrUsernameAlreadySet):
 			httputil.Conflict(w, err.Error())
+		case errors.Is(err, userpkg.ErrInvalidUsername):
+			httputil.ValidationError(w, map[string]string{"username": err.Error()})
 		default:
 			httputil.InternalError(w, r, err)
 		}

@@ -24,6 +24,9 @@ type UserRepository interface {
 	ChangeAvatar(ctx context.Context, id uuid.UUID, url string) error
 	CheckUsernameExists(ctx context.Context, username string) (bool, error)
 	CheckPhoneExists(ctx context.Context, phone string) (bool, error)
+	SearchByUsernamePrefix(ctx context.Context, prefix string, excludeUserID uuid.UUID, limit int32) ([]model.UserSearchResult, error)
+	UpdateUsername(ctx context.Context, id uuid.UUID, username string) error
+	UpdatePrivacy(ctx context.Context, id uuid.UUID, searchable bool, policy model.DMPolicy) error
 
 	UpsertPhoneOTP(ctx context.Context, phone, codeHash string, expiresAt, sentAt time.Time) error
 	GetPhoneOTP(ctx context.Context, phone string) (model.PhoneOTP, error)

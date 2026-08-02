@@ -1,11 +1,13 @@
 package model
 
 import (
-	"fmt"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+var ErrInvalidMessageContent = errors.New("invalid message content")
 
 type MessageSender struct {
 	ID        uuid.UUID `json:"id"`
@@ -23,7 +25,7 @@ type Message struct {
 
 func NewMessage(conversationID uuid.UUID, content string, sender User) (Message, error) {
 	if len(content) > 5000 {
-		return Message{}, fmt.Errorf("invalid content length")
+		return Message{}, ErrInvalidMessageContent
 	}
 	return Message{
 		ID:             uuid.Must(uuid.NewV7()),

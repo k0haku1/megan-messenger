@@ -15,10 +15,19 @@ WHERE slug = $1
 LIMIT 1;
 
 -- name: GetUserConversations :many
-SELECT c.*
+SELECT c.id,
+       c.type,
+       c.title,
+       c.slug,
+       c.created_at,
+       peer.id         AS peer_id,
+       peer.username   AS peer_username,
+       peer.avatar_url AS peer_avatar_url
 FROM conversations c
-         JOIN conversation_members cm ON cm.conversation_id = c.id
-WHERE cm.user_id = $1
+         JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $1
+         LEFT JOIN conversation_members pcm
+                   ON pcm.conversation_id = c.id AND pcm.user_id <> $1 AND c.type = 'dm'
+         LEFT JOIN users peer ON peer.id = pcm.user_id
 ORDER BY c.created_at DESC;
 
 -- name: AddConversationMember :exec

@@ -52,7 +52,7 @@ definitions:
     properties:
       username:
         maxLength: 32
-        minLength: 3
+        minLength: 5
         type: string
     required:
     - username
@@ -93,13 +93,6 @@ definitions:
     - code
     - phone
     type: object
-  conversation.CreateDMRequest:
-    properties:
-      userId:
-        type: string
-    required:
-    - userId
-    type: object
   conversation.CreateGroupRequest:
     properties:
       memberIds:
@@ -132,6 +125,28 @@ definitions:
           $ref: '#/definitions/model.Conversation'
         type: array
     type: object
+  conversation.SendDMMessageRequest:
+    properties:
+      content:
+        maxLength: 5000
+        minLength: 1
+        type: string
+      userId:
+        type: string
+      username:
+        maxLength: 32
+        minLength: 5
+        type: string
+    required:
+    - content
+    type: object
+  conversation.SendDMMessageResponse:
+    properties:
+      conversation:
+        $ref: '#/definitions/model.Conversation'
+      message:
+        $ref: '#/definitions/model.Message'
+    type: object
   httputil.ErrorBody:
     properties:
       code:
@@ -154,6 +169,20 @@ definitions:
       nextCursor:
         type: string
     type: object
+  message.SendMessageRequest:
+    properties:
+      content:
+        maxLength: 5000
+        minLength: 1
+        type: string
+    required:
+    - content
+    type: object
+  message.SendMessageResponse:
+    properties:
+      message:
+        $ref: '#/definitions/model.Message'
+    type: object
   model.Conversation:
     properties:
       createdAt:
@@ -164,6 +193,8 @@ definitions:
         items:
           $ref: '#/definitions/model.ConversationMember'
         type: array
+      peer:
+        $ref: '#/definitions/model.ConversationPeer'
       slug:
         type: string
       title:
@@ -188,6 +219,15 @@ definitions:
     - conversationId
     - id
     - userId
+    type: object
+  model.ConversationPeer:
+    properties:
+      avatarUrl:
+        type: string
+      id:
+        type: string
+      username:
+        type: string
     type: object
   model.ConversationType:
     enum:
@@ -229,6 +269,8 @@ definitions:
     properties:
       avatarUrl:
         type: string
+      dmPolicy:
+        type: string
       hasPassword:
         type: boolean
       id:
@@ -239,6 +281,8 @@ definitions:
         type: string
       username:
         type: string
+      usernameSearchable:
+        type: boolean
     type: object
 info:
   contact: {}
@@ -532,6 +576,53 @@ paths:
       summary: List messages in a conversation
       tags:
       - message
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Conversation ID
+        in: path
+        name: conversationID
+        required: true
+        type: string
+      - description: Message params
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/message.SendMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/message.SendMessageResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Send a message in an existing conversation
+      tags:
+      - message
   /conversations/{conversationID}/ws:
     get:
       description: Connect to receive real-time messages in a conversation
@@ -559,24 +650,25 @@ paths:
       summary: Connect to conversation websocket
       tags:
       - conversation
-  /conversations/dm:
+  /conversations/dm/messages:
     post:
       consumes:
       - application/json
+      description: Creates the DM conversation if it does not exist yet
       parameters:
-      - description: DM params
+      - description: DM message params
         in: body
         name: input
         required: true
         schema:
-          $ref: '#/definitions/conversation.CreateDMRequest'
+          $ref: '#/definitions/conversation.SendDMMessageRequest'
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
           schema:
-            $ref: '#/definitions/model.Conversation'
+            $ref: '#/definitions/conversation.SendDMMessageResponse'
         "400":
           description: Bad Request
           schema:
@@ -585,13 +677,25 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/httputil.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/httputil.ErrorResponse'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/httputil.ErrorResponse'
       security:
       - BearerAuth: []
-      summary: Create or get a direct message conversation
+      summary: Send the first message in a direct conversation
       tags:
       - conversation
   /conversations/group:

@@ -10,6 +10,7 @@ import (
 	"megan-messenger/internal/model"
 	"megan-messenger/internal/notification"
 	"megan-messenger/internal/repository"
+	userpkg "megan-messenger/internal/user"
 	"time"
 
 	"github.com/google/uuid"
@@ -162,13 +163,18 @@ func (s *Service) VerifyPasswordChallenge(ctx context.Context, challengeToken, p
 	return s.issueAuthResult(ctx, user)
 }
 
-func (s *Service) CompleteUsername(ctx context.Context, userID uuid.UUID, username string) (AuthResult, model.User, error) {
-	user, err := s.userRepo.GetByID(ctx, userID)
+func (s *Service) CompleteUsername(ctx context.Context, userID uuid.UUID, rawUsername string) (AuthResult, model.User, error) {
+	currentUser, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return AuthResult{}, model.User{}, err
 	}
-	if user.Username != "" {
+	if currentUser.Username != "" {
 		return AuthResult{}, model.User{}, ErrUsernameAlreadySet
+	}
+
+	username := userpkg.NormalizeUsername(rawUsername)
+	if err := userpkg.ValidateUsername(username); err != nil {
+		return AuthResult{}, model.User{}, err
 	}
 
 	exists, err := s.userRepo.CheckUsernameExists(ctx, username)
@@ -186,12 +192,12 @@ func (s *Service) CompleteUsername(ctx context.Context, userID uuid.UUID, userna
 		return AuthResult{}, model.User{}, err
 	}
 
-	user.Username = username
-	result, err := s.issueAuthResult(ctx, user)
+	currentUser.Username = username
+	result, err := s.issueAuthResult(ctx, currentUser)
 	if err != nil {
 		return AuthResult{}, model.User{}, err
 	}
-	return result, user, nil
+	return result, currentUser, nil
 }
 
 func (s *Service) SetPassword(ctx context.Context, userID uuid.UUID, password, currentPassword string) error {

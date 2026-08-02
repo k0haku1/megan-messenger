@@ -9,12 +9,42 @@ import (
 )
 
 type User struct {
-	ID           uuid.UUID `json:"id"`
-	Phone        string    `json:"phone"`
-	Username     string    `json:"username,omitempty"`
-	PasswordHash string    `json:"-"`
-	AvatarURL    string    `json:"avatarUrl,omitempty"`
-	CreatedAt    time.Time `json:"-"`
+	ID                 uuid.UUID `json:"id"`
+	Phone              string    `json:"phone"`
+	Username           string    `json:"username,omitempty"`
+	PasswordHash       string    `json:"-"`
+	AvatarURL          string    `json:"avatarUrl,omitempty"`
+	UsernameSearchable bool      `json:"usernameSearchable"`
+	DMPolicy           DMPolicy  `json:"dmPolicy"`
+	CreatedAt          time.Time `json:"-"`
+}
+
+type DMPolicy string
+
+const (
+	DMPolicyEveryone DMPolicy = "everyone"
+	DMPolicyNobody   DMPolicy = "nobody"
+)
+
+func (p DMPolicy) AllowsMessagesFromExistingChat() bool {
+	return true
+}
+
+func (p DMPolicy) AllowsNewMessages() bool {
+	return p == DMPolicyEveryone
+}
+
+type PublicUserProfile struct {
+	ID         uuid.UUID `json:"id"`
+	Username   string    `json:"username"`
+	AvatarURL  string    `json:"avatarUrl,omitempty"`
+	CanMessage bool      `json:"canMessage"`
+}
+
+type UserSearchResult struct {
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	AvatarURL string    `json:"avatarUrl,omitempty"`
 }
 
 func NewUser(phone string) User {

@@ -1,12 +1,8 @@
 import Dexie, { type EntityTable } from 'dexie'
-import type { Conversation, Message } from '@/entities/conversation/model/types'
-
-export interface SyncState { key: string; status: 'idle' | 'loading' | 'success' | 'error'; updatedAt: number; error?: string }
+import type { Message } from '@/entities/message/model/types'
 
 class MessengerDatabase extends Dexie {
-  conversations!: EntityTable<Conversation, 'id'>
   messages!: EntityTable<Message, 'id'>
-  syncStates!: EntityTable<SyncState, 'key'>
 
   constructor() {
     super('megan-messenger')
@@ -14,6 +10,9 @@ class MessengerDatabase extends Dexie {
       conversations: 'id, type, createdAt',
       messages: 'id, conversationId, [conversationId+createdAt], createdAt',
       syncStates: 'key, status, updatedAt',
+    })
+    this.version(2).stores({
+      messages: 'id, conversationId, [conversationId+createdAt], createdAt',
     })
   }
 }

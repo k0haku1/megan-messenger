@@ -13,7 +13,7 @@ LIMIT 1;
 -- name: GetUserByUsername :one
 SELECT *
 FROM users
-WHERE username = $1
+WHERE lower(username) = lower($1)
 LIMIT 1;
 
 -- name: CreateUser :one
@@ -44,7 +44,7 @@ WHERE id = $2;
 -- name: UserWithUsernameExists :one
 SELECT EXISTS (SELECT 1
                FROM users
-               WHERE username = $1);
+               WHERE lower(username) = lower($1));
 
 -- name: UserWithPhoneExists :one
 SELECT EXISTS (SELECT 1
@@ -75,3 +75,24 @@ WHERE phone = $1;
 DELETE
 FROM phone_otp_codes
 WHERE phone = $1;
+
+-- name: SearchUsersByUsernamePrefix :many
+SELECT id, username, avatar_url
+FROM users
+WHERE username IS NOT NULL
+  AND username_searchable = true
+  AND lower(username) LIKE lower(sqlc.arg(prefix)) || '%'
+  AND id <> sqlc.arg(exclude_user_id)
+ORDER BY username
+LIMIT sqlc.arg(result_limit);
+
+-- name: UpdateUsername :exec
+UPDATE users
+SET username = $1
+WHERE id = $2;
+
+-- name: UpdateUserPrivacy :exec
+UPDATE users
+SET username_searchable = $1,
+    dm_policy           = $2
+WHERE id = $3;

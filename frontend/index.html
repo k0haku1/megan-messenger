@@ -1,5 +1,32 @@
 <!doctype html>
 <html lang="ru">
-  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>Megan Messenger</title></head>
-  <body><div id="app"></div><script type="module" src="/src/app/main.ts"></script></body>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#e8eaf0" />
+    <title>Megan Messenger</title>
+    <script>
+      ;(() => {
+        const key = 'mm_theme'
+        const saved = localStorage.getItem(key)
+        const preference =
+          saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system'
+        const theme =
+          preference === 'system'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light'
+            : preference
+        document.documentElement.dataset.theme = theme
+        document.documentElement.style.colorScheme = theme
+        const metaColors = { light: '#e8eaf0', dark: '#0c111c' }
+        const meta = document.querySelector('meta[name="theme-color"]')
+        if (meta) meta.setAttribute('content', metaColors[theme])
+      })()
+    </script>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/app/main.ts"></script>
+  </body>
 </html>

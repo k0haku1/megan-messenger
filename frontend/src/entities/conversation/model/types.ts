@@ -1,17 +1,16 @@
 export type ConversationType = 'dm' | 'group'
 
+export interface ConversationPeer {
+  id: string
+  username: string
+  avatarUrl?: string
+}
+
 export interface Conversation {
   id: string
   type: ConversationType
   title?: string
   slug?: string
+  peer?: ConversationPeer
   createdAt?: string
-}
-
-export interface Message {
-  id: string
-  conversationId: string
-  content: string
-  createdAt: string
-  sender: { id: string; username: string; avatarUrl?: string }
 }

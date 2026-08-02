@@ -11,6 +11,12 @@ export const router = createRouter({
       meta: { guest: true },
     },
     {
+      path: '/u/:username',
+      name: 'user-link',
+      component: () => import('@/pages/messenger/ui/MessengerPage.vue'),
+      meta: { requiresAuth: true, requiresOnboarding: true },
+    },
+    {
       path: '/',
       name: 'messenger',
       component: () => import('@/pages/messenger/ui/MessengerPage.vue'),

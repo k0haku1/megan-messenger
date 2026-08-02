@@ -16,8 +16,15 @@ type CreateGroupResponse struct {
 	Slug string    `json:"slug"`
 }
 
-type CreateDMRequest struct {
-	UserID uuid.UUID `json:"userId" validate:"required"`
+type SendDMMessageRequest struct {
+	UserID   *uuid.UUID `json:"userId" validate:"omitempty,uuid"`
+	Username *string    `json:"username" validate:"omitempty,min=5,max=32"`
+	Content  string     `json:"content" validate:"required,min=1,max=5000"`
+}
+
+type SendDMMessageResponse struct {
+	Conversation model.Conversation `json:"conversation"`
+	Message      model.Message      `json:"message"`
 }
 
 type ListResponse struct {

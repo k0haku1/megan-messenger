@@ -18,12 +18,18 @@ import (
 
 type Service struct {
 	repo             repository.UserRepository
+	conversations    repository.ConversationRepository
 	avatarsUploadDir string
 }
 
-func NewService(repo repository.UserRepository, avatarsUploadDir string) *Service {
+func NewService(
+	repo repository.UserRepository,
+	conversations repository.ConversationRepository,
+	avatarsUploadDir string,
+) *Service {
 	return &Service{
 		repo:             repo,
+		conversations:    conversations,
 		avatarsUploadDir: avatarsUploadDir,
 	}
 }

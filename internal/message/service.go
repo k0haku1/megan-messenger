@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"megan-messenger/internal/model"
 	"megan-messenger/internal/pagination"
 	"megan-messenger/internal/repository"
@@ -16,16 +15,18 @@ import (
 type Service struct {
 	conversationRepo repository.ConversationRepository
 	messageRepo      repository.MessageRepository
+	users            repository.UserRepository
 }
 
-var (
-	ErrConversationNotFound = errors.New("conversation not found")
-)
-
-func NewService(conversationRepo repository.ConversationRepository, messageRepo repository.MessageRepository) *Service {
+func NewService(
+	conversationRepo repository.ConversationRepository,
+	messageRepo repository.MessageRepository,
+	users repository.UserRepository,
+) *Service {
 	return &Service{
 		conversationRepo: conversationRepo,
 		messageRepo:      messageRepo,
+		users:            users,
 	}
 }
 
@@ -35,10 +36,36 @@ func (s *Service) ListMessages(ctx context.Context, userID, conversationID uuid.
 		return nil, err
 	}
 	if !ok {
-		return nil, ErrConversationNotFound
+		return nil, repository.ErrConversationNotFound
 	}
 
 	return s.messageRepo.ListMessages(ctx, conversationID, limit, cursor)
+}
+
+func (s *Service) SendMessage(
+	ctx context.Context,
+	userID, conversationID uuid.UUID,
+	content string,
+) (model.Message, error) {
+	ok, err := s.conversationRepo.IsMember(ctx, conversationID, userID)
+	if err != nil {
+		return model.Message{}, err
+	}
+	if !ok {
+		return model.Message{}, repository.ErrConversationNotFound
+	}
+
+	sender, err := s.users.GetByID(ctx, userID)
+	if err != nil {
+		return model.Message{}, err
+	}
+
+	msg, err := model.NewMessage(conversationID, content, sender)
+	if err != nil {
+		return model.Message{}, err
+	}
+
+	return s.messageRepo.CreateMessage(ctx, msg)
 }
 
 func (s *Service) GenerateCursor(message model.Message) string {

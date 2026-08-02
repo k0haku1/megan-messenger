@@ -56,17 +56,19 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { onClickOutside } from '@vueuse/core'
 import BaseIconButton from '@/shared/ui/BaseIconButton.vue'
 import BaseAvatar from '@/shared/ui/BaseAvatar.vue'
-import { useConversationSelectionStore } from '@/features/conversation-selection/model/conversation-selection.store'
 import { useSessionStore } from '@/entities/session/model/session.store'
+import { getUserAvatarColor, getUserDisplayName } from '@/entities/session/lib/display'
+import { useConversationSelectionStore } from '@/features/conversation-selection/model/conversation-selection.store'
 import { useProfileUiStore } from '@/features/profile/model/profile-ui.store'
-import { router } from '@/app/router'
 
 const navigation = useConversationSelectionStore()
 const session = useSessionStore()
 const profileUi = useProfileUiStore()
+const router = useRouter()
 
 const menuOpen = ref(false)
 const loggingOut = ref(false)
@@ -76,13 +78,10 @@ onClickOutside(profileRef, () => {
   menuOpen.value = false
 })
 
-const displayName = computed(() => session.user?.username || session.user?.phone || 'User')
-const avatarColor = computed(() => {
-  const seed = displayName.value
-  let hash = 0
-  for (let i = 0; i < seed.length; i += 1) hash = (hash + seed.charCodeAt(i) * (i + 1)) % 6
-  return hash
-})
+const displayName = computed(() =>
+  getUserDisplayName(session.user?.username, session.user?.phone),
+)
+const avatarColor = computed(() => getUserAvatarColor(displayName.value))
 
 const folders = [
   { id: 'all', icon: '◉', label: 'Все чаты' },
@@ -101,6 +100,7 @@ async function onLogout() {
   loggingOut.value = true
   menuOpen.value = false
   try {
+    navigation.select(null)
     await session.logout()
     await router.replace({ name: 'auth' })
   } finally {

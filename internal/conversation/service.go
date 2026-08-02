@@ -5,6 +5,7 @@ import (
 	"errors"
 	"megan-messenger/internal/model"
 	"megan-messenger/internal/repository"
+	"megan-messenger/internal/user"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -12,15 +13,22 @@ import (
 
 var (
 	ErrCannotDMYourself     = errors.New("cannot dm yourself")
+	ErrCannotMessageUser    = user.ErrCannotMessageUser
 	ErrConversationNotFound = repository.ErrConversationNotFound
 )
 
 type Service struct {
-	repo repository.ConversationRepository
+	repo     repository.ConversationRepository
+	users    repository.UserRepository
+	messages repository.MessageRepository
 }
 
-func NewService(repo repository.ConversationRepository) *Service {
-	return &Service{repo: repo}
+func NewService(
+	repo repository.ConversationRepository,
+	users repository.UserRepository,
+	messages repository.MessageRepository,
+) *Service {
+	return &Service{repo: repo, users: users, messages: messages}
 }
 
 func (s *Service) ListByUser(ctx context.Context, userID uuid.UUID) ([]model.Conversation, error) {
@@ -59,14 +67,39 @@ func (s *Service) GetOrCreateDM(ctx context.Context, selfID, peerID uuid.UUID) (
 		return model.Conversation{}, ErrCannotDMYourself
 	}
 
+	peer, err := s.users.GetByID(ctx, peerID)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return model.Conversation{}, user.ErrUserNotDiscoverable
+		}
+		return model.Conversation{}, err
+	}
+
+	if !peer.OnboardingComplete() {
+		return model.Conversation{}, user.ErrUserNotDiscoverable
+	}
+
 	low, high := model.DMPairKey(selfID, peerID)
 
 	convID, err := s.repo.FindDM(ctx, low, high)
 	if err == nil {
-		return s.repo.GetByID(ctx, convID)
+		conv, err := s.repo.GetByID(ctx, convID)
+		if err != nil {
+			return model.Conversation{}, err
+		}
+		conv.Peer = peerToConversationPeer(peer)
+		return conv, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
 		return model.Conversation{}, err
+	}
+
+	canMessage, err := s.usersCanMessage(ctx, selfID, peer)
+	if err != nil {
+		return model.Conversation{}, err
+	}
+	if !canMessage {
+		return model.Conversation{}, ErrCannotMessageUser
 	}
 
 	conv := model.NewDMConversation()
@@ -85,7 +118,100 @@ func (s *Service) GetOrCreateDM(ctx context.Context, selfID, peerID uuid.UUID) (
 		return model.Conversation{}, err
 	}
 
+	created.Peer = peerToConversationPeer(peer)
+
 	return created, nil
+}
+
+func peerToConversationPeer(peer model.User) *model.ConversationPeer {
+	return &model.ConversationPeer{
+		ID:        peer.ID,
+		Username:  peer.Username,
+		AvatarURL: peer.AvatarURL,
+	}
+}
+
+func (s *Service) GetOrCreateDMByUsername(ctx context.Context, selfID uuid.UUID, rawUsername string) (model.Conversation, error) {
+	peer, err := s.resolveDiscoverableUser(ctx, rawUsername)
+	if err != nil {
+		return model.Conversation{}, err
+	}
+
+	return s.GetOrCreateDM(ctx, selfID, peer.ID)
+}
+
+func (s *Service) SendDMMessage(
+	ctx context.Context,
+	selfID uuid.UUID,
+	userID *uuid.UUID,
+	username *string,
+	content string,
+) (model.Conversation, model.Message, error) {
+	var conv model.Conversation
+	var err error
+
+	if userID != nil {
+		conv, err = s.GetOrCreateDM(ctx, selfID, *userID)
+	} else {
+		conv, err = s.GetOrCreateDMByUsername(ctx, selfID, *username)
+	}
+	if err != nil {
+		return model.Conversation{}, model.Message{}, err
+	}
+
+	sender, err := s.users.GetByID(ctx, selfID)
+	if err != nil {
+		return model.Conversation{}, model.Message{}, err
+	}
+
+	msg, err := model.NewMessage(conv.ID, content, sender)
+	if err != nil {
+		return model.Conversation{}, model.Message{}, err
+	}
+
+	created, err := s.messages.CreateMessage(ctx, msg)
+	if err != nil {
+		return model.Conversation{}, model.Message{}, err
+	}
+
+	return conv, created, nil
+}
+
+func (s *Service) resolveDiscoverableUser(ctx context.Context, rawUsername string) (model.User, error) {
+	username := user.NormalizeUsername(rawUsername)
+	if err := user.ValidateUsername(username); err != nil {
+		return model.User{}, user.ErrUserNotDiscoverable
+	}
+
+	target, err := s.users.GetByUsername(ctx, username)
+	if err != nil {
+		if errors.Is(err, repository.ErrUserNotFound) {
+			return model.User{}, user.ErrUserNotDiscoverable
+		}
+		return model.User{}, err
+	}
+
+	if !target.OnboardingComplete() || !target.UsernameSearchable {
+		return model.User{}, user.ErrUserNotDiscoverable
+	}
+
+	return target, nil
+}
+
+func (s *Service) usersCanMessage(ctx context.Context, viewerID uuid.UUID, target model.User) (bool, error) {
+	if target.DMPolicy.AllowsNewMessages() {
+		return true, nil
+	}
+
+	low, high := model.DMPairKey(viewerID, target.ID)
+	_, err := s.repo.FindDM(ctx, low, high)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	return false, err
 }
 
 func (s *Service) JoinBySlug(ctx context.Context, userID uuid.UUID, slug string) (model.Conversation, error) {

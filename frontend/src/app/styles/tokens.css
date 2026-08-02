@@ -1,0 +1,73 @@
+/* Semantic theme contract. Override tokens per theme below. */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --color-bg-app: #e8eaf0;
+  --color-bg-elevated: #ffffff;
+  --color-bg-subtle: #f4f6f8;
+  --color-bg-hover: #f1f3f5;
+  --color-bg-active: #9c74fb;
+  --color-bg-chat: #ddd8e8;
+  --color-bg-message: #ffffff;
+  --color-bg-message-own: #f0ebff;
+  --color-bg-glass: rgb(255 255 255 / 78%);
+  --color-bg-placeholder: rgb(255 255 255 / 28%);
+  --color-text-primary: #182533;
+  --color-text-secondary: #707579;
+  --color-text-tertiary: #a2acb4;
+  --color-text-on-accent: #ffffff;
+  --color-text-on-accent-muted: rgb(255 255 255 / 78%);
+  --color-accent: #9c74fb;
+  --color-accent-hover: #8247f0;
+  --color-accent-gradient-from: #bea8ff;
+  --color-accent-gradient-to: #9c74fb;
+  --shadow-accent: 0 7px 18px rgb(156 116 251 / 30%);
+  --color-auth-glow-accent: rgb(156 116 251 / 16%);
+  --color-auth-glow-muted: rgb(83 121 141 / 10%);
+  --color-border: #dfe3e6;
+  --color-danger: #df3f40;
+  --color-success: #2f9e62;
+  --color-overlay: rgb(24 37 51 / 52%);
+  --color-sync-notice-bg: color-mix(in srgb, var(--color-danger) 8%, white);
+  --shadow-panel: 0 14px 42px rgb(33 55 74 / 14%);
+  --radius-xs: 6px;
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-round: 999px;
+  --sidebar-folders-width: 76px;
+  --sidebar-chats-width: 360px;
+  --header-height: 64px;
+  --transition-fast: 140ms ease;
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-bg-app: #0c111c;
+  --color-bg-elevated: #111827;
+  --color-bg-subtle: #1f2937;
+  --color-bg-hover: #374151;
+  --color-bg-active: #b198ff;
+  --color-bg-chat: #151b28;
+  --color-bg-message: #1f2937;
+  --color-bg-message-own: #2d2640;
+  --color-bg-glass: rgb(17 24 39 / 82%);
+  --color-bg-placeholder: rgb(17 24 39 / 45%);
+  --color-text-primary: #f9fafb;
+  --color-text-secondary: #d1d5db;
+  --color-text-tertiary: #9ca3af;
+  --color-text-on-accent: #111827;
+  --color-text-on-accent-muted: rgb(17 24 39 / 72%);
+  --color-accent: #b198ff;
+  --color-accent-hover: #bea8ff;
+  --color-accent-gradient-from: #bea8ff;
+  --color-accent-gradient-to: #9c74fb;
+  --shadow-accent: 0 7px 18px rgb(177 152 255 / 22%);
+  --color-auth-glow-accent: rgb(177 152 255 / 14%);
+  --color-auth-glow-muted: rgb(156 116 251 / 8%);
+  --color-border: #374151;
+  --color-danger: #f87171;
+  --color-success: #4ade80;
+  --color-overlay: rgb(0 0 0 / 58%);
+  --color-sync-notice-bg: color-mix(in srgb, var(--color-danger) 14%, #111827);
+  --shadow-panel: 0 14px 42px rgb(0 0 0 / 34%);
+}

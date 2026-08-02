@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authApi } from '../api/auth.api'
 import type { AuthResult, SessionUser } from './types'
+import { clearLocalCache } from '@/shared/lib/clear-local-cache'
 
 const ACCESS_TOKEN_KEY = 'mm_access_token'
 
@@ -73,6 +74,7 @@ export const useSessionStore = defineStore('session', () => {
     user.value = null
     challengeToken.value = null
     pendingPhone.value = ''
+    await clearLocalCache()
   }
 
   function setPendingPhone(phone: string) {

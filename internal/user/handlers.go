@@ -3,18 +3,21 @@ package user
 import (
 	"errors"
 	"megan-messenger/internal/httputil"
+	"megan-messenger/internal/ratelimit"
 	"net/http"
 )
 
 type Handler struct {
-	validator *httputil.Validator
-	service   *Service
+	validator   *httputil.Validator
+	service     *Service
+	rateLimiter *ratelimit.Limiter
 }
 
-func NewHandler(validator *httputil.Validator, service *Service) *Handler {
+func NewHandler(validator *httputil.Validator, service *Service, rateLimiter *ratelimit.Limiter) *Handler {
 	return &Handler{
-		validator: validator,
-		service:   service,
+		validator:   validator,
+		service:     service,
+		rateLimiter: rateLimiter,
 	}
 }
 
@@ -44,6 +47,8 @@ func (h *Handler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 		AvatarURL:          user.AvatarURL,
 		HasPassword:        user.HasPassword(),
 		OnboardingComplete: user.OnboardingComplete(),
+		UsernameSearchable: user.UsernameSearchable,
+		DMPolicy:           string(user.DMPolicy),
 	})
 }
 

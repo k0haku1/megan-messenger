@@ -11,6 +11,7 @@ import (
 	"megan-messenger/internal/conversation"
 	"megan-messenger/internal/httputil"
 	"megan-messenger/internal/message"
+	"megan-messenger/internal/ratelimit"
 	"megan-messenger/internal/user"
 	"megan-messenger/internal/ws"
 	"net/http"
@@ -50,9 +51,9 @@ func (app *application) mount() http.Handler {
 	wsAuthMw := auth.WebSocketMiddleware(app.authenticator)
 
 	authHandler := auth.NewHandler(app.validator, app.authService)
-	userHandler := user.NewHandler(app.validator, app.userService)
+	userHandler := user.NewHandler(app.validator, app.userService, app.rateLimiter)
 	conversationHandler := conversation.NewHandler(app.validator, app.conversationService, app.wsService)
-	messageHandler := message.NewHandler(app.validator, app.messageService)
+	messageHandler := message.NewHandler(app.validator, app.messageService, app.wsService)
 
 	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
 
@@ -69,18 +70,24 @@ func (app *application) mount() http.Handler {
 	})
 
 	r.With(authMw).Group(func(r chi.Router) {
-		r.Route("/users/me", func(r chi.Router) {
-			r.Get("/", userHandler.CurrentUser)
-			r.With(auth.RequireOnboarded).Post("/avatar", userHandler.UploadAvatar)
-		})
+		r.Get("/users/me", userHandler.CurrentUser)
 
-		r.With(auth.RequireOnboarded).Route("/conversations", func(r chi.Router) {
-			r.Get("/", conversationHandler.List)
-			r.Post("/group", conversationHandler.CreateGroup)
-			r.Post("/dm", conversationHandler.CreateOrGetDM)
-			r.Post("/join/{slug:[a-z0-9]{11}}", conversationHandler.JoinBySlug)
-			r.Route("/{conversationID}", func(r chi.Router) {
-				r.Get("/messages", messageHandler.ListMessages)
+		r.With(auth.RequireOnboarded).Group(func(r chi.Router) {
+			r.Get("/users/search", userHandler.SearchUsers)
+			r.Get("/users/by-username/{username}", userHandler.GetByUsername)
+			r.Patch("/users/me/username", userHandler.UpdateUsername)
+			r.Patch("/users/me/privacy", userHandler.UpdatePrivacy)
+			r.Post("/users/me/avatar", userHandler.UploadAvatar)
+
+			r.Route("/conversations", func(r chi.Router) {
+				r.Get("/", conversationHandler.List)
+				r.Post("/group", conversationHandler.CreateGroup)
+				r.Post("/dm/messages", conversationHandler.SendDMMessage)
+				r.Post("/join/{slug:[a-z0-9]{11}}", conversationHandler.JoinBySlug)
+				r.Route("/{conversationID}", func(r chi.Router) {
+					r.Get("/messages", messageHandler.ListMessages)
+					r.Post("/messages", messageHandler.SendMessage)
+				})
 			})
 		})
 	})
@@ -150,4 +157,5 @@ type application struct {
 	wsService           *ws.Service
 	messageService      *message.Service
 	validator           *httputil.Validator
+	rateLimiter         *ratelimit.Limiter
 }

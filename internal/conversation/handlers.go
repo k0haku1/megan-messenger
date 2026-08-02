@@ -4,11 +4,11 @@ import (
 	"errors"
 	"log/slog"
 	"megan-messenger/internal/httputil"
+	"megan-messenger/internal/model"
 	"megan-messenger/internal/repository"
+	userpkg "megan-messenger/internal/user"
 	"megan-messenger/internal/ws"
 	"net/http"
-
-	"github.com/google/uuid"
 )
 
 type Handler struct {
@@ -82,23 +82,27 @@ func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 	httputil.Created(w, CreateGroupResponse{ID: created.ID, Slug: created.Slug})
 }
 
-// CreateOrGetDM godoc
+// SendDMMessage godoc
 //
-//	@Summary	Create or get a direct message conversation
-//	@Tags		conversation
-//	@Accept		json
-//	@Produce	json
-//	@Security	BearerAuth
-//	@Param		input	body		CreateDMRequest	true	"DM params"
-//	@Success	200		{object}	model.Conversation
-//	@Failure	400		{object}	httputil.ErrorResponse
-//	@Failure	401		{object}	httputil.ErrorResponse
-//	@Failure	500		{object}	httputil.ErrorResponse
-//	@Router		/conversations/dm [post]
-func (h *Handler) CreateOrGetDM(w http.ResponseWriter, r *http.Request) {
+//	@Summary		Send the first message in a direct conversation
+//	@Description	Creates the DM conversation if it does not exist yet
+//	@Tags			conversation
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			input	body		SendDMMessageRequest	true	"DM message params"
+//	@Success		201		{object}	SendDMMessageResponse
+//	@Failure		400		{object}	httputil.ErrorResponse
+//	@Failure		401		{object}	httputil.ErrorResponse
+//	@Failure		403		{object}	httputil.ErrorResponse
+//	@Failure		404		{object}	httputil.ErrorResponse
+//	@Failure		422		{object}	httputil.ErrorResponse
+//	@Failure		500		{object}	httputil.ErrorResponse
+//	@Router			/conversations/dm/messages [post]
+func (h *Handler) SendDMMessage(w http.ResponseWriter, r *http.Request) {
 	user := httputil.UserFromRequest(r)
 
-	var params CreateDMRequest
+	var params SendDMMessageRequest
 	if err := httputil.Read(r, &params); err != nil {
 		httputil.InvalidRequestBody(w)
 		return
@@ -109,17 +113,44 @@ func (h *Handler) CreateOrGetDM(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conv, err := h.service.GetOrCreateDM(r.Context(), user.ID, params.UserID)
-	if err != nil {
-		if errors.Is(err, ErrCannotDMYourself) {
-			httputil.BadRequest(w, err.Error())
-			return
-		}
-		httputil.InternalError(w, r, err)
+	target, fieldErrors, ok := parseDMTarget(params.UserID, params.Username)
+	if !ok {
+		httputil.ValidationError(w, fieldErrors)
 		return
 	}
 
-	httputil.SuccessData(w, conv)
+	var conv model.Conversation
+	var message model.Message
+	var err error
+	if target.userID != nil {
+		conv, message, err = h.service.SendDMMessage(r.Context(), user.ID, target.userID, nil, params.Content)
+	} else {
+		conv, message, err = h.service.SendDMMessage(r.Context(), user.ID, nil, target.username, params.Content)
+	}
+	if err != nil {
+		switch {
+		case errors.Is(err, ErrCannotDMYourself):
+			httputil.BadRequest(w, err.Error())
+		case errors.Is(err, ErrCannotMessageUser):
+			httputil.Forbidden(w, err.Error())
+		case errors.Is(err, userpkg.ErrUserNotDiscoverable):
+			httputil.NotFound(w, "")
+		case errors.Is(err, model.ErrInvalidMessageContent):
+			httputil.ValidationError(w, httputil.FieldErrors{"content": "Message is too long"})
+		default:
+			httputil.InternalError(w, r, err)
+		}
+		return
+	}
+
+	if err := h.wsService.PublishMessage(r.Context(), conv.ID, message); err != nil {
+		slog.Warn("failed to publish dm message", "err", err)
+	}
+
+	httputil.Created(w, SendDMMessageResponse{
+		Conversation: conv,
+		Message:      message,
+	})
 }
 
 // JoinBySlug godoc
@@ -165,7 +196,7 @@ func (h *Handler) JoinBySlug(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Websocket(w http.ResponseWriter, r *http.Request) {
 	user := httputil.UserFromRequest(r)
 
-	conversationID, err := uuid.Parse(r.PathValue("conversationID"))
+	conversationID, err := httputil.ParseConversationID(r)
 	if err != nil {
 		httputil.BadRequest(w, "invalid conversation id")
 		return
