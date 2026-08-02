@@ -4,6 +4,8 @@ import {
   sendConversationMessage,
   sendDirectMessage,
 } from '@/features/send-message/model/send-message'
+import { formatReplyContent } from '@/entities/message/lib/format-reply'
+import type { Message } from '@/entities/message/model/types'
 import type { PendingPeer } from '@/features/conversation-selection/model/conversation-selection.store'
 
 type ComposerTarget =
@@ -14,6 +16,7 @@ type ComposerTarget =
 export function useMessageComposer(options: {
   selectedConversationId: Ref<string | null>
   pendingPeer: Ref<PendingPeer | null>
+  replyTo: Ref<Message | null>
   onConversationOpened: (conversationId: string) => void
 }) {
   const draft = ref('')
@@ -39,14 +42,23 @@ export function useMessageComposer(options: {
   watch([options.selectedConversationId, options.pendingPeer], () => {
     draft.value = ''
     sendError.value = null
+    options.replyTo.value = null
   })
 
+  function clearReply() {
+    options.replyTo.value = null
+  }
+
   async function send(): Promise<void> {
-    const content = draft.value.trim()
+    const rawContent = draft.value.trim()
     const activeTarget = target.value
-    if (!content || isSending.value || !activeTarget) {
+    if (!rawContent || isSending.value || !activeTarget) {
       return
     }
+
+    const content = options.replyTo.value
+      ? formatReplyContent(options.replyTo.value, rawContent)
+      : rawContent
 
     isSending.value = true
     sendError.value = null
@@ -58,12 +70,14 @@ export function useMessageComposer(options: {
           content,
         })
         draft.value = ''
+        options.replyTo.value = null
         options.onConversationOpened(conversationId)
         return
       }
 
       await sendConversationMessage(activeTarget.conversationId, content)
       draft.value = ''
+      options.replyTo.value = null
     } catch (error) {
       sendError.value = getSendErrorMessage(error)
     } finally {
@@ -77,5 +91,6 @@ export function useMessageComposer(options: {
     sendError,
     canSend,
     send,
+    clearReply,
   }
 }

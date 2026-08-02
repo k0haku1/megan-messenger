@@ -176,6 +176,22 @@
       <rect x="4" y="6" width="16" height="12" rx="2" stroke="currentColor" stroke-width="2" />
       <path d="M4 8l8 5 8-5" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
     </g>
+    <g v-else-if="name === 'book'">
+      <path
+        d="M6 5h11a2 2 0 0 1 2 2v13H8a2 2 0 0 0-2 2V5z"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linejoin="round"
+      />
+      <path d="M8 5v15" stroke="currentColor" stroke-width="2" />
+    </g>
+    <path
+      v-else-if="name === 'link'"
+      d="M10 14a4 4 0 0 0 5.66 0l2.34-2.34a4 4 0 0 0-5.66-5.66L11 7.34M14 10a4 4 0 0 0-5.66 0L6 12.34a4 4 0 0 0 5.66 5.66L13 16.66"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+    />
   </svg>
 </template>
 

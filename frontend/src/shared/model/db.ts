@@ -3,6 +3,7 @@ import type { Message } from '@/entities/message/model/types'
 
 class MessengerDatabase extends Dexie {
   messages!: EntityTable<Message, 'id'>
+  hiddenMessages!: EntityTable<{ id: string }, 'id'>
 
   constructor() {
     super('megan-messenger')
@@ -13,6 +14,9 @@ class MessengerDatabase extends Dexie {
     })
     this.version(2).stores({
       messages: 'id, conversationId, [conversationId+createdAt], createdAt',
+    })
+    this.version(3).stores({
+      hiddenMessages: 'id',
     })
   }
 }

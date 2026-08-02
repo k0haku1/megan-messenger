@@ -45,6 +45,44 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 	return i, err
 }
 
+const getMessageByID = `-- name: GetMessageByID :one
+SELECT m.id,
+       m.conversation_id,
+       m.sender_id,
+       m.content,
+       m.created_at,
+       u.username,
+       u.avatar_url
+FROM messages m
+         JOIN users u ON u.id = m.sender_id
+WHERE m.id = $1
+`
+
+type GetMessageByIDRow struct {
+	ID             uuid.UUID          `db:"id" json:"id"`
+	ConversationID uuid.UUID          `db:"conversation_id" json:"conversationId"`
+	SenderID       uuid.UUID          `db:"sender_id" json:"senderId"`
+	Content        string             `db:"content" json:"content"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	Username       pgtype.Text        `db:"username" json:"username"`
+	AvatarUrl      pgtype.Text        `db:"avatar_url" json:"avatarUrl"`
+}
+
+func (q *Queries) GetMessageByID(ctx context.Context, id uuid.UUID) (GetMessageByIDRow, error) {
+	row := q.db.QueryRow(ctx, getMessageByID, id)
+	var i GetMessageByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ConversationID,
+		&i.SenderID,
+		&i.Content,
+		&i.CreatedAt,
+		&i.Username,
+		&i.AvatarUrl,
+	)
+	return i, err
+}
+
 const getMessagesPaging = `-- name: GetMessagesPaging :many
 SELECT m.id, m.conversation_id, m.sender_id, m.content, m.created_at, u.id, u.phone, u.username, u.password_hash, u.avatar_url, u.created_at, u.username_searchable, u.dm_policy
 FROM messages m

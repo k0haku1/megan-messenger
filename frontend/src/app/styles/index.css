@@ -1048,6 +1048,72 @@ button {
   color: var(--color-text-tertiary);
 }
 
+.messenger-layout > .projects-page,
+.messenger-layout > .project-detail-page {
+  grid-column: 2 / -1;
+  min-width: 0;
+}
+
+.markdown-body {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-normal);
+}
+.markdown-body :is(h1, h2, h3, h4) {
+  margin: 1.1em 0 0.45em;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+}
+.markdown-body h1 {
+  font-size: 1.55rem;
+}
+.markdown-body h2 {
+  font-size: 1.25rem;
+}
+.markdown-body h3 {
+  font-size: 1.08rem;
+}
+.markdown-body p,
+.markdown-body ul,
+.markdown-body ol,
+.markdown-body pre,
+.markdown-body blockquote {
+  margin: 0.65em 0;
+}
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.25rem;
+}
+.markdown-body code {
+  padding: 0.12em 0.35em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.92em;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-xs);
+}
+.markdown-body pre {
+  overflow: auto;
+  padding: 12px 14px;
+  background: var(--color-bg-subtle);
+  border-radius: var(--radius-sm);
+}
+.markdown-body pre code {
+  padding: 0;
+  background: transparent;
+}
+.markdown-body blockquote {
+  padding-left: 12px;
+  color: var(--color-text-secondary);
+  border-left: 3px solid color-mix(in srgb, var(--color-accent) 45%, transparent);
+}
+.markdown-body a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+.markdown-body a:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 900px) {
   :root {
     --sidebar-chats-width: 310px;

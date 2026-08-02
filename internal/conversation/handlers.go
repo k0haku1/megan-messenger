@@ -75,6 +75,10 @@ func (h *Handler) CreateGroup(w http.ResponseWriter, r *http.Request) {
 
 	created, err := h.service.CreateGroup(r.Context(), user.ID, params.Title, params.MemberIDs)
 	if err != nil {
+		if errors.Is(err, ErrInvalidGroupMember) {
+			httputil.ValidationError(w, httputil.FieldErrors{"memberIds": "One or more members were not found"})
+			return
+		}
 		httputil.InternalError(w, r, err)
 		return
 	}
@@ -179,6 +183,42 @@ func (h *Handler) JoinBySlug(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.SuccessData(w, JoinBySlugResponse{ID: conv.ID})
+}
+
+// LeaveGroup godoc
+//
+//	@Summary	Leave a group conversation
+//	@Tags		conversation
+//	@Security	BearerAuth
+//	@Param		conversationID	path	string	true	"Conversation ID"
+//	@Success	204
+//	@Failure	400	{object}	httputil.ErrorResponse
+//	@Failure	401	{object}	httputil.ErrorResponse
+//	@Failure	404	{object}	httputil.ErrorResponse
+//	@Failure	500	{object}	httputil.ErrorResponse
+//	@Router		/conversations/{conversationID}/leave [post]
+func (h *Handler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
+	user := httputil.UserFromRequest(r)
+
+	conversationID, err := httputil.ParseConversationID(r)
+	if err != nil {
+		httputil.BadRequest(w, "invalid conversation id")
+		return
+	}
+
+	if err := h.service.LeaveGroup(r.Context(), user.ID, conversationID); err != nil {
+		switch {
+		case errors.Is(err, ErrNotGroupConversation):
+			httputil.BadRequest(w, "only group conversations can be left")
+		case errors.Is(err, repository.ErrConversationNotFound):
+			httputil.NotFound(w, "")
+		default:
+			httputil.InternalError(w, r, err)
+		}
+		return
+	}
+
+	httputil.NoContent(w)
 }
 
 // Websocket godoc

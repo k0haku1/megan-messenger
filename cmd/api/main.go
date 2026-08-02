@@ -12,6 +12,7 @@ import (
 	"megan-messenger/internal/httputil"
 	"megan-messenger/internal/message"
 	"megan-messenger/internal/notification"
+	"megan-messenger/internal/project"
 	"megan-messenger/internal/ratelimit"
 	"megan-messenger/internal/user"
 	"megan-messenger/internal/ws"
@@ -57,6 +58,7 @@ func main() {
 	userRepo := postgres.NewUserRepository(queries)
 	conversationRepo := postgres.NewConversationRepository(queries)
 	messageRepo := postgres.NewMessageRepository(queries)
+	projectRepo := postgres.NewProjectRepository(queries)
 
 	authService := auth.NewService(
 		authenticator,
@@ -70,6 +72,7 @@ func main() {
 	conversationService := conversation.NewService(conversationRepo, userRepo, messageRepo)
 	wsService := ws.NewService(rdb, userRepo, messageRepo, cfg.CORS.AllowedOrigins)
 	messageService := message.NewService(conversationRepo, messageRepo, userRepo)
+	projectService := project.NewService(projectRepo, userRepo, conversationRepo, messageRepo)
 	rateLimiter := ratelimit.New(rdb)
 	validator := httputil.NewValidator()
 
@@ -83,6 +86,7 @@ func main() {
 		conversationService: conversationService,
 		wsService:           wsService,
 		messageService:      messageService,
+		projectService:      projectService,
 		validator:           validator,
 		rateLimiter:         rateLimiter,
 	}

@@ -6,12 +6,19 @@
         v-for="folder in CHAT_FOLDERS"
         :key="folder.id"
         :label="folder.label"
-        :active="navigation.activeFolder === folder.id"
-        @click="navigation.selectFolder(folder.id)"
+        :active="!isProjectsRoute && navigation.activeFolder === folder.id"
+        @click="openFolder(folder.id)"
       >
         <AppIcon :name="folder.icon" size="sm" />
       </BaseIconButton>
       <span class="folder-sidebar__divider" />
+      <BaseIconButton
+        label="Проекты"
+        :active="isProjectsRoute"
+        @click="router.push({ name: 'projects' })"
+      >
+        <AppIcon name="book" size="sm" />
+      </BaseIconButton>
       <BaseIconButton label="Добавить папку">
         <AppIcon name="plus" size="sm" />
       </BaseIconButton>
@@ -62,12 +69,12 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { onClickOutside } from '@vueuse/core'
 import BaseIconButton from '@/shared/ui/BaseIconButton.vue'
 import BaseAvatar from '@/shared/ui/BaseAvatar.vue'
 import AppIcon from '@/shared/ui/AppIcon.vue'
-import { CHAT_FOLDERS } from '@/shared/config/folders'
+import { CHAT_FOLDERS, type FolderId } from '@/shared/config/folders'
 import { useSessionStore } from '@/entities/session/model/session.store'
 import { getUserAvatarColor, getUserDisplayName } from '@/entities/session/lib/display'
 import { useConversationSelectionStore } from '@/features/conversation-selection/model/conversation-selection.store'
@@ -77,6 +84,9 @@ const navigation = useConversationSelectionStore()
 const session = useSessionStore()
 const profileUi = useProfileUiStore()
 const router = useRouter()
+const route = useRoute()
+
+const isProjectsRoute = computed(() => route.path.startsWith('/projects'))
 
 const menuOpen = ref(false)
 const loggingOut = ref(false)
@@ -90,6 +100,13 @@ const displayName = computed(() =>
   getUserDisplayName(session.user?.username, session.user?.phone),
 )
 const avatarColor = computed(() => getUserAvatarColor(displayName.value))
+
+function openFolder(folderId: FolderId) {
+  navigation.selectFolder(folderId)
+  if (isProjectsRoute.value) {
+    void router.push({ name: 'messenger' })
+  }
+}
 
 function onOpenProfile() {
   menuOpen.value = false

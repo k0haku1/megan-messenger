@@ -3,8 +3,8 @@ package auth
 import (
 	"errors"
 	"megan-messenger/internal/httputil"
-	"megan-messenger/internal/model"
 	userpkg "megan-messenger/internal/user"
+	"megan-messenger/internal/model"
 	"net/http"
 )
 

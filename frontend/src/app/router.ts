@@ -23,6 +23,18 @@ export const router = createRouter({
       meta: { requiresAuth: true, requiresOnboarding: true },
     },
     {
+      path: '/projects',
+      name: 'projects',
+      component: () => import('@/pages/projects/ui/ProjectsPage.vue'),
+      meta: { requiresAuth: true, requiresOnboarding: true },
+    },
+    {
+      path: '/projects/:projectId',
+      name: 'project-detail',
+      component: () => import('@/pages/project-detail/ui/ProjectDetailPage.vue'),
+      meta: { requiresAuth: true, requiresOnboarding: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       redirect: '/',
     },

@@ -11,6 +11,7 @@ import (
 	"megan-messenger/internal/conversation"
 	"megan-messenger/internal/httputil"
 	"megan-messenger/internal/message"
+	"megan-messenger/internal/project"
 	"megan-messenger/internal/ratelimit"
 	"megan-messenger/internal/user"
 	"megan-messenger/internal/ws"
@@ -54,6 +55,7 @@ func (app *application) mount() http.Handler {
 	userHandler := user.NewHandler(app.validator, app.userService, app.rateLimiter)
 	conversationHandler := conversation.NewHandler(app.validator, app.conversationService, app.wsService)
 	messageHandler := message.NewHandler(app.validator, app.messageService, app.wsService)
+	projectHandler := project.NewHandler(app.validator, app.projectService)
 
 	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
 
@@ -85,8 +87,33 @@ func (app *application) mount() http.Handler {
 				r.Post("/dm/messages", conversationHandler.SendDMMessage)
 				r.Post("/join/{slug:[a-z0-9]{11}}", conversationHandler.JoinBySlug)
 				r.Route("/{conversationID}", func(r chi.Router) {
+					r.Post("/leave", conversationHandler.LeaveGroup)
+					r.Get("/projects", projectHandler.ListConversationProjects)
 					r.Get("/messages", messageHandler.ListMessages)
 					r.Post("/messages", messageHandler.SendMessage)
+				})
+			})
+
+			r.Route("/projects", func(r chi.Router) {
+				r.Get("/", projectHandler.List)
+				r.Post("/", projectHandler.Create)
+				r.Route("/{projectID}", func(r chi.Router) {
+					r.Get("/", projectHandler.Get)
+					r.Get("/members", projectHandler.ListMembers)
+					r.Post("/members", projectHandler.AddMember)
+					r.Get("/docs", projectHandler.ListDocs)
+					r.Post("/docs", projectHandler.CreateDoc)
+					r.Route("/docs/{docID}", func(r chi.Router) {
+						r.Get("/", projectHandler.GetDoc)
+						r.Patch("/", projectHandler.UpdateDoc)
+						r.Delete("/", projectHandler.DeleteDoc)
+					})
+					r.Get("/decisions", projectHandler.ListDecisions)
+					r.Post("/decisions", projectHandler.CreateDecision)
+					r.Patch("/decisions/{decisionID}", projectHandler.UpdateDecisionStatus)
+					r.Get("/conversations", projectHandler.ListConversations)
+					r.Post("/conversations", projectHandler.LinkConversation)
+					r.Delete("/conversations/{conversationID}", projectHandler.UnlinkConversation)
 				})
 			})
 		})
@@ -156,6 +183,7 @@ type application struct {
 	conversationService *conversation.Service
 	wsService           *ws.Service
 	messageService      *message.Service
+	projectService      *project.Service
 	validator           *httputil.Validator
 	rateLimiter         *ratelimit.Limiter
 }

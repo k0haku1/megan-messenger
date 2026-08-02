@@ -13,26 +13,51 @@ import (
 
 type Querier interface {
 	AddConversationMember(ctx context.Context, arg AddConversationMemberParams) error
+	AddProjectMember(ctx context.Context, arg AddProjectMemberParams) error
 	ClearUserPassword(ctx context.Context, id uuid.UUID) error
 	ConversationExists(ctx context.Context, id uuid.UUID) (bool, error)
 	CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error)
 	CreateDMPair(ctx context.Context, arg CreateDMPairParams) error
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
+	CreateProject(ctx context.Context, arg CreateProjectParams) (Project, error)
+	CreateProjectDecision(ctx context.Context, arg CreateProjectDecisionParams) (ProjectDecision, error)
+	CreateProjectDoc(ctx context.Context, arg CreateProjectDocParams) (ProjectDoc, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	DeletePhoneOTP(ctx context.Context, phone string) error
+	DeleteProjectDoc(ctx context.Context, arg DeleteProjectDocParams) error
 	FindDMConversation(ctx context.Context, arg FindDMConversationParams) (uuid.UUID, error)
 	GetConversation(ctx context.Context, id uuid.UUID) (Conversation, error)
 	GetConversationBySlug(ctx context.Context, slug pgtype.Text) (Conversation, error)
+	GetMessageByID(ctx context.Context, id uuid.UUID) (GetMessageByIDRow, error)
 	GetMessagesPaging(ctx context.Context, arg GetMessagesPagingParams) ([]GetMessagesPagingRow, error)
 	GetPhoneOTP(ctx context.Context, phone string) (PhoneOtpCode, error)
+	GetProject(ctx context.Context, id uuid.UUID) (Project, error)
+	GetProjectDecision(ctx context.Context, arg GetProjectDecisionParams) (ProjectDecision, error)
+	GetProjectDoc(ctx context.Context, arg GetProjectDocParams) (ProjectDoc, error)
+	GetProjectDocBySlug(ctx context.Context, arg GetProjectDocBySlugParams) (ProjectDoc, error)
+	GetProjectMemberRole(ctx context.Context, arg GetProjectMemberRoleParams) (ProjectMemberRole, error)
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByPhone(ctx context.Context, phone string) (User, error)
 	GetUserByUsername(ctx context.Context, lower string) (User, error)
 	GetUserConversations(ctx context.Context, userID uuid.UUID) ([]GetUserConversationsRow, error)
 	IncrementPhoneOTPAttempts(ctx context.Context, phone string) error
 	IsConversationMember(ctx context.Context, arg IsConversationMemberParams) (bool, error)
+	IsProjectConversationLinked(ctx context.Context, arg IsProjectConversationLinkedParams) (bool, error)
+	IsProjectMember(ctx context.Context, arg IsProjectMemberParams) (bool, error)
+	LinkProjectConversation(ctx context.Context, arg LinkProjectConversationParams) error
+	ListConversationProjects(ctx context.Context, arg ListConversationProjectsParams) ([]Project, error)
+	ListProjectConversations(ctx context.Context, projectID uuid.UUID) ([]ListProjectConversationsRow, error)
+	ListProjectDecisions(ctx context.Context, projectID uuid.UUID) ([]ProjectDecision, error)
+	ListProjectDocs(ctx context.Context, projectID uuid.UUID) ([]ListProjectDocsRow, error)
+	ListProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ListProjectMembersRow, error)
+	ListUserProjects(ctx context.Context, userID uuid.UUID) ([]ListUserProjectsRow, error)
+	ProjectDocSlugExists(ctx context.Context, arg ProjectDocSlugExistsParams) (bool, error)
+	RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) error
 	SearchUsersByUsernamePrefix(ctx context.Context, arg SearchUsersByUsernamePrefixParams) ([]SearchUsersByUsernamePrefixRow, error)
 	SetUsername(ctx context.Context, arg SetUsernameParams) error
+	UnlinkProjectConversation(ctx context.Context, arg UnlinkProjectConversationParams) error
+	UpdateProjectDecisionStatus(ctx context.Context, arg UpdateProjectDecisionStatusParams) (ProjectDecision, error)
+	UpdateProjectDoc(ctx context.Context, arg UpdateProjectDocParams) (ProjectDoc, error)
 	UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) error
 	UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) error
 	UpdateUserPrivacy(ctx context.Context, arg UpdateUserPrivacyParams) error

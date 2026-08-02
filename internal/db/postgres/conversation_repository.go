@@ -111,6 +111,13 @@ func (r *ConversationRepository) AddMember(ctx context.Context, conversationID, 
 	})
 }
 
+func (r *ConversationRepository) RemoveMember(ctx context.Context, conversationID, userID uuid.UUID) error {
+	return r.queries.RemoveConversationMember(ctx, db.RemoveConversationMemberParams{
+		ConversationID: conversationID,
+		UserID:         userID,
+	})
+}
+
 func (r *ConversationRepository) IsMember(ctx context.Context, conversationID, userID uuid.UUID) (bool, error) {
 	return r.queries.IsConversationMember(ctx, db.IsConversationMemberParams{
 		ConversationID: conversationID,

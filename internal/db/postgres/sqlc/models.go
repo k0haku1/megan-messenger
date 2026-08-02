@@ -54,6 +54,91 @@ func (ns NullConversationType) Value() (driver.Value, error) {
 	return string(ns.ConversationType), nil
 }
 
+type DecisionStatus string
+
+const (
+	DecisionStatusProposed   DecisionStatus = "proposed"
+	DecisionStatusAccepted   DecisionStatus = "accepted"
+	DecisionStatusDeprecated DecisionStatus = "deprecated"
+)
+
+func (e *DecisionStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = DecisionStatus(s)
+	case string:
+		*e = DecisionStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for DecisionStatus: %T", src)
+	}
+	return nil
+}
+
+type NullDecisionStatus struct {
+	DecisionStatus DecisionStatus `json:"decisionStatus"`
+	Valid          bool           `json:"valid"` // Valid is true if DecisionStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullDecisionStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.DecisionStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.DecisionStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullDecisionStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.DecisionStatus), nil
+}
+
+type ProjectMemberRole string
+
+const (
+	ProjectMemberRoleOwner  ProjectMemberRole = "owner"
+	ProjectMemberRoleMember ProjectMemberRole = "member"
+)
+
+func (e *ProjectMemberRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ProjectMemberRole(s)
+	case string:
+		*e = ProjectMemberRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ProjectMemberRole: %T", src)
+	}
+	return nil
+}
+
+type NullProjectMemberRole struct {
+	ProjectMemberRole ProjectMemberRole `json:"projectMemberRole"`
+	Valid             bool              `json:"valid"` // Valid is true if ProjectMemberRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullProjectMemberRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.ProjectMemberRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ProjectMemberRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullProjectMemberRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ProjectMemberRole), nil
+}
+
 type Conversation struct {
 	ID        uuid.UUID          `db:"id" json:"id"`
 	Type      ConversationType   `db:"type" json:"type"`
@@ -91,6 +176,48 @@ type PhoneOtpCode struct {
 	Attempts  int32              `db:"attempts" json:"attempts"`
 	SentAt    pgtype.Timestamptz `db:"sent_at" json:"sentAt"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+type Project struct {
+	ID          uuid.UUID          `db:"id" json:"id"`
+	Name        string             `db:"name" json:"name"`
+	Description string             `db:"description" json:"description"`
+	CreatedBy   uuid.UUID          `db:"created_by" json:"createdBy"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+type ProjectConversation struct {
+	ProjectID      uuid.UUID          `db:"project_id" json:"projectId"`
+	ConversationID uuid.UUID          `db:"conversation_id" json:"conversationId"`
+	LinkedAt       pgtype.Timestamptz `db:"linked_at" json:"linkedAt"`
+}
+
+type ProjectDecision struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	ProjectID uuid.UUID          `db:"project_id" json:"projectId"`
+	Summary   string             `db:"summary" json:"summary"`
+	Context   string             `db:"context" json:"context"`
+	Status    DecisionStatus     `db:"status" json:"status"`
+	MessageID pgtype.UUID        `db:"message_id" json:"messageId"`
+	CreatedBy uuid.UUID          `db:"created_by" json:"createdBy"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
+type ProjectDoc struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	ProjectID uuid.UUID          `db:"project_id" json:"projectId"`
+	Slug      string             `db:"slug" json:"slug"`
+	Title     string             `db:"title" json:"title"`
+	BodyMd    string             `db:"body_md" json:"bodyMd"`
+	CreatedBy uuid.UUID          `db:"created_by" json:"createdBy"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ProjectMember struct {
+	ProjectID uuid.UUID          `db:"project_id" json:"projectId"`
+	UserID    uuid.UUID          `db:"user_id" json:"userId"`
+	Role      ProjectMemberRole  `db:"role" json:"role"`
+	JoinedAt  pgtype.Timestamptz `db:"joined_at" json:"joinedAt"`
 }
 
 type User struct {

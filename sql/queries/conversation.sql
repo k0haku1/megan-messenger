@@ -35,6 +35,12 @@ INSERT INTO conversation_members (id, conversation_id, user_id, joined_at)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (conversation_id, user_id) DO NOTHING;
 
+-- name: RemoveConversationMember :exec
+DELETE
+FROM conversation_members
+WHERE conversation_id = $1
+  AND user_id = $2;
+
 -- name: IsConversationMember :one
 SELECT EXISTS (SELECT 1
                FROM conversation_members

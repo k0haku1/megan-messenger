@@ -230,3 +230,20 @@ func (q *Queries) IsConversationMember(ctx context.Context, arg IsConversationMe
 	err := row.Scan(&exists)
 	return exists, err
 }
+
+const removeConversationMember = `-- name: RemoveConversationMember :exec
+DELETE
+FROM conversation_members
+WHERE conversation_id = $1
+  AND user_id = $2
+`
+
+type RemoveConversationMemberParams struct {
+	ConversationID uuid.UUID `db:"conversation_id" json:"conversationId"`
+	UserID         uuid.UUID `db:"user_id" json:"userId"`
+}
+
+func (q *Queries) RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) error {
+	_, err := q.db.Exec(ctx, removeConversationMember, arg.ConversationID, arg.UserID)
+	return err
+}

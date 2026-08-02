@@ -2,11 +2,14 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	db "megan-messenger/internal/db/postgres/sqlc"
 	"megan-messenger/internal/model"
 	"megan-messenger/internal/pagination"
+	"megan-messenger/internal/repository"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
@@ -81,4 +84,26 @@ func (r *MessageRepository) ListMessages(ctx context.Context, conversationID uui
 	}
 
 	return mapMessages(messages), nil
+}
+
+func (r *MessageRepository) GetByID(ctx context.Context, id uuid.UUID) (model.Message, error) {
+	row, err := r.queries.GetMessageByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return model.Message{}, repository.ErrMessageNotFound
+		}
+		return model.Message{}, err
+	}
+
+	return model.Message{
+		ID:             row.ID,
+		ConversationID: row.ConversationID,
+		Content:        row.Content,
+		CreatedAt:      row.CreatedAt.Time,
+		Sender: model.MessageSender{
+			ID:        row.SenderID,
+			Username:  textOrEmpty(row.Username),
+			AvatarURL: textOrEmpty(row.AvatarUrl),
+		},
+	}, nil
 }

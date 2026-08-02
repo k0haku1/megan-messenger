@@ -16,6 +16,7 @@ type ConversationRepository interface {
 	GetBySlug(ctx context.Context, slug string) (model.Conversation, error)
 	Create(ctx context.Context, conversation model.Conversation) (model.Conversation, error)
 	AddMember(ctx context.Context, conversationID, userID uuid.UUID) error
+	RemoveMember(ctx context.Context, conversationID, userID uuid.UUID) error
 	IsMember(ctx context.Context, conversationID, userID uuid.UUID) (bool, error)
 	FindDM(ctx context.Context, userLow, userHigh uuid.UUID) (uuid.UUID, error)
 	CreateDMPair(ctx context.Context, userLow, userHigh, conversationID uuid.UUID) error

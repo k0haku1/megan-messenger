@@ -54,6 +54,12 @@ func (s *Service) CreateGroup(ctx context.Context, creatorID uuid.UUID, title st
 		if memberID == creatorID {
 			continue
 		}
+		if _, err := s.users.GetByID(ctx, memberID); err != nil {
+			if errors.Is(err, repository.ErrUserNotFound) {
+				return model.Conversation{}, ErrInvalidGroupMember
+			}
+			return model.Conversation{}, err
+		}
 		if err := s.repo.AddMember(ctx, created.ID, memberID); err != nil {
 			return model.Conversation{}, err
 		}
@@ -229,6 +235,27 @@ func (s *Service) JoinBySlug(ctx context.Context, userID uuid.UUID, slug string)
 	}
 
 	return conv, nil
+}
+
+func (s *Service) LeaveGroup(ctx context.Context, userID, conversationID uuid.UUID) error {
+	conv, err := s.repo.GetByID(ctx, conversationID)
+	if err != nil {
+		return err
+	}
+
+	if conv.Type != model.ConversationTypeGroup {
+		return ErrNotGroupConversation
+	}
+
+	isMember, err := s.repo.IsMember(ctx, conversationID, userID)
+	if err != nil {
+		return err
+	}
+	if !isMember {
+		return repository.ErrConversationNotFound
+	}
+
+	return s.repo.RemoveMember(ctx, conversationID, userID)
 }
 
 func (s *Service) EnsureMember(ctx context.Context, userID, conversationID uuid.UUID) (model.Conversation, error) {

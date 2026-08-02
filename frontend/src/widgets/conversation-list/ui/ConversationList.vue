@@ -3,9 +3,7 @@
     <header class="conversation-sidebar__header">
       <div class="conversation-sidebar__title">
         <h1>{{ folderTitle }}</h1>
-        <BaseIconButton label="Новый чат" variant="ghost" @click="focusSearch()">
-          <AppIcon name="edit" size="sm" />
-        </BaseIconButton>
+        <NewChatMenu @focus-search="focusSearch()" />
       </div>
       <BaseSearchInput
         ref="searchInputRef"
@@ -74,11 +72,11 @@ import {
 } from '@/entities/conversation/lib/display'
 import { normalizeUsernameQuery } from '@/entities/user/lib/username'
 import GlobalSearchResults from '@/features/global-search/ui/GlobalSearchResults.vue'
+import NewChatMenu from '@/features/new-chat/ui/NewChatMenu.vue'
 import { useGlobalSearchStore } from '@/features/global-search/model/global-search.store'
-import AppIcon from '@/shared/ui/AppIcon.vue'
 import BaseAvatar from '@/shared/ui/BaseAvatar.vue'
-import BaseIconButton from '@/shared/ui/BaseIconButton.vue'
 import BaseSearchInput from '@/shared/ui/BaseSearchInput.vue'
+import AppIcon from '@/shared/ui/AppIcon.vue'
 import { CHAT_FOLDER_TITLES } from '@/shared/config/folders'
 import type { FolderId } from '@/shared/config/folders'
 
