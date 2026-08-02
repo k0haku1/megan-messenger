@@ -38,6 +38,15 @@
   --sidebar-chats-width: 360px;
   --header-height: 64px;
   --transition-fast: 140ms ease;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 15px;
+  --font-size-xl: 18px;
+  --font-size-2xl: 20px;
+  --font-size-display: 24px;
+  --line-height-tight: 1.35;
+  --line-height-normal: 1.45;
 }
 
 [data-theme='dark'] {

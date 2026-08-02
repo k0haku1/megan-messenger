@@ -1,12 +1,12 @@
 <template>
   <div class="profile-view">
     <section class="profile-view__section">
-      <p class="profile-modal__hint">
+      <p class="modal-sheet__hint">
         Дополнительная защита после SMS. Если пароль задан, при входе его нужно ввести после кода.
       </p>
 
-      <p v-if="session.user?.hasPassword" class="profile-modal__status is-on">Пароль установлен</p>
-      <p v-else class="profile-modal__status">Пароль не задан</p>
+      <p v-if="session.user?.hasPassword" class="modal-sheet__status is-on">Пароль установлен</p>
+      <p v-else class="modal-sheet__status">Пароль не задан</p>
 
       <form class="auth-form" @submit.prevent="onSavePassword">
         <BaseTextField
@@ -27,7 +27,7 @@
           :disabled="loading"
         />
         <p v-if="formError" class="auth-form__error">{{ formError }}</p>
-        <p v-if="successMessage" class="profile-modal__success">{{ successMessage }}</p>
+        <p v-if="successMessage" class="modal-sheet__success">{{ successMessage }}</p>
         <BaseButton type="submit" block :loading="loading">
           {{ session.user?.hasPassword ? 'Сменить пароль' : 'Установить пароль' }}
         </BaseButton>
@@ -35,7 +35,7 @@
 
       <form
         v-if="session.user?.hasPassword"
-        class="auth-form profile-modal__remove"
+        class="auth-form modal-sheet__remove"
         @submit.prevent="onRemovePassword"
       >
         <BaseTextField

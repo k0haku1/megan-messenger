@@ -1,8 +1,8 @@
 <template>
   <div class="profile-view">
-    <section class="profile-modal__identity">
+    <section class="modal-sheet__identity">
       <BaseAvatar :name="displayName" size="lg" :color="avatarColor" />
-      <div class="profile-modal__identity-meta">
+      <div class="modal-sheet__identity-meta">
         <strong>{{ displayName }}</strong>
         <span>{{ session.user?.phone }}</span>
       </div>

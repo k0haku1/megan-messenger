@@ -1,12 +1,26 @@
 export const APP_ICON_NAMES = [
   'chevron-left',
+  'chevron-right',
   'close',
   'check',
   'edit',
+  'search',
+  'menu',
+  'emoji',
+  'send',
+  'attach',
+  'plus',
+  'user',
+  'logout',
   'username',
   'privacy',
   'theme',
   'password',
+  'folder-all',
+  'folder-personal',
+  'folder-groups',
+  'folder-work',
+  'mail',
 ] as const
 
 export type AppIconName = (typeof APP_ICON_NAMES)[number]

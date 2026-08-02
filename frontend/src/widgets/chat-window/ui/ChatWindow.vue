@@ -9,17 +9,17 @@
         </div>
         <div class="chat-header__actions">
           <BaseIconButton label="Поиск по сообщениям">
-            <span class="action-glyph">⌕</span>
+            <AppIcon name="search" />
           </BaseIconButton>
           <BaseIconButton label="Информация о чате">
-            <span class="action-glyph">⋮</span>
+            <AppIcon name="menu" />
           </BaseIconButton>
         </div>
       </header>
 
       <div class="message-area">
         <div v-if="visibleMessages.length === 0" class="chat-empty">
-          <span class="chat-empty__icon">✉</span>
+          <AppIcon class="chat-empty__icon" name="mail" />
           <strong>{{ header.isPending ? 'Напишите первое сообщение' : 'Начните общение' }}</strong>
           <span>{{
             header.isPending
@@ -47,7 +47,7 @@
 
       <footer class="composer">
         <BaseIconButton label="Прикрепить файл">
-          <span class="action-glyph">⌕</span>
+          <AppIcon name="attach" />
         </BaseIconButton>
         <textarea
           v-model="draft"
@@ -58,10 +58,10 @@
           @keydown.enter.exact.prevent="send()"
         />
         <BaseIconButton label="Эмодзи">
-          <span class="action-glyph">☺</span>
+          <AppIcon name="emoji" />
         </BaseIconButton>
         <BaseIconButton label="Отправить" variant="primary" :disabled="!canSend" @click="send()">
-          <span class="send-glyph">➤</span>
+          <AppIcon name="send" />
         </BaseIconButton>
       </footer>
 
@@ -94,6 +94,7 @@ import { useConversationWs } from '@/features/conversation-ws/model/use-conversa
 import { useSessionStore } from '@/entities/session/model/session.store'
 import BaseAvatar from '@/shared/ui/BaseAvatar.vue'
 import BaseIconButton from '@/shared/ui/BaseIconButton.vue'
+import AppIcon from '@/shared/ui/AppIcon.vue'
 
 const navigation = useConversationSelectionStore()
 const session = useSessionStore()

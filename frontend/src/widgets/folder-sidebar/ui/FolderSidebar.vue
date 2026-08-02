@@ -3,16 +3,18 @@
     <div class="folder-sidebar__brand" aria-label="Megan Messenger">M</div>
     <nav class="folder-sidebar__nav">
       <BaseIconButton
-        v-for="folder in folders"
+        v-for="folder in CHAT_FOLDERS"
         :key="folder.id"
         :label="folder.label"
         :active="navigation.activeFolder === folder.id"
         @click="navigation.selectFolder(folder.id)"
       >
-        <span class="folder-icon" aria-hidden="true">{{ folder.icon }}</span>
+        <AppIcon :name="folder.icon" size="sm" />
       </BaseIconButton>
       <span class="folder-sidebar__divider" />
-      <BaseIconButton label="Добавить папку"><span class="folder-icon folder-icon--plus">＋</span></BaseIconButton>
+      <BaseIconButton label="Добавить папку">
+        <AppIcon name="plus" size="sm" />
+      </BaseIconButton>
     </nav>
 
     <div ref="profileRef" class="folder-sidebar__profile">
@@ -36,7 +38,9 @@
           role="menuitem"
           @click="onOpenProfile"
         >
-          <span class="profile-menu__icon" aria-hidden="true">☺</span>
+          <span class="profile-menu__icon">
+            <AppIcon name="user" size="sm" />
+          </span>
           <span>Мой профиль</span>
         </button>
         <button
@@ -46,7 +50,9 @@
           :disabled="loggingOut"
           @click="onLogout"
         >
-          <span class="profile-menu__icon" aria-hidden="true">⎋</span>
+          <span class="profile-menu__icon">
+            <AppIcon name="logout" size="sm" />
+          </span>
           <span>Выйти</span>
         </button>
       </div>
@@ -60,6 +66,8 @@ import { useRouter } from 'vue-router'
 import { onClickOutside } from '@vueuse/core'
 import BaseIconButton from '@/shared/ui/BaseIconButton.vue'
 import BaseAvatar from '@/shared/ui/BaseAvatar.vue'
+import AppIcon from '@/shared/ui/AppIcon.vue'
+import { CHAT_FOLDERS } from '@/shared/config/folders'
 import { useSessionStore } from '@/entities/session/model/session.store'
 import { getUserAvatarColor, getUserDisplayName } from '@/entities/session/lib/display'
 import { useConversationSelectionStore } from '@/features/conversation-selection/model/conversation-selection.store'
@@ -82,13 +90,6 @@ const displayName = computed(() =>
   getUserDisplayName(session.user?.username, session.user?.phone),
 )
 const avatarColor = computed(() => getUserAvatarColor(displayName.value))
-
-const folders = [
-  { id: 'all', icon: '◉', label: 'Все чаты' },
-  { id: 'personal', icon: '♙', label: 'Личные' },
-  { id: 'groups', icon: '♟', label: 'Группы' },
-  { id: 'work', icon: '▣', label: 'Работа' },
-] as const
 
 function onOpenProfile() {
   menuOpen.value = false

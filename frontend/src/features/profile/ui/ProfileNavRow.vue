@@ -8,7 +8,9 @@
       <small v-if="description">{{ description }}</small>
     </span>
     <span v-if="value" class="profile-nav-row__value">{{ value }}</span>
-    <span class="profile-nav-row__chevron" aria-hidden="true">›</span>
+    <span class="profile-nav-row__chevron" aria-hidden="true">
+      <AppIcon name="chevron-right" size="sm" />
+    </span>
   </button>
 </template>
 

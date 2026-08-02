@@ -53,7 +53,7 @@
         v-if="filteredConversations.length === 0 && !showUserResults"
         class="conversation-list__empty"
       >
-        <span class="conversation-list__empty-icon">⌕</span>
+        <AppIcon class="conversation-list__empty-icon" name="search" />
         <strong>{{ searchStore.query ? 'Чаты не найдены' : 'Здесь пока пусто' }}</strong>
         <span>{{
           searchStore.query ? 'Попробуйте @username' : 'Чаты появятся после синхронизации'
@@ -79,6 +79,8 @@ import AppIcon from '@/shared/ui/AppIcon.vue'
 import BaseAvatar from '@/shared/ui/BaseAvatar.vue'
 import BaseIconButton from '@/shared/ui/BaseIconButton.vue'
 import BaseSearchInput from '@/shared/ui/BaseSearchInput.vue'
+import { CHAT_FOLDER_TITLES } from '@/shared/config/folders'
+import type { FolderId } from '@/shared/config/folders'
 
 const { conversations, isError } = useConversations()
 const navigation = useConversationSelectionStore()
@@ -87,10 +89,7 @@ const { selectedConversationId, activeFolder } = storeToRefs(navigation)
 const searchInputRef = ref<{ focus: () => void } | null>(null)
 
 const folderTitle = computed(
-  () =>
-    ({ all: 'Все чаты', personal: 'Личные', groups: 'Группы', work: 'Работа' })[
-      activeFolder.value
-    ] ?? 'Папка',
+  () => CHAT_FOLDER_TITLES[activeFolder.value as FolderId] ?? 'Папка',
 )
 
 const showUserResults = computed(() => normalizeUsernameQuery(searchStore.query).length >= 2)

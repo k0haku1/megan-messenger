@@ -1,6 +1,6 @@
 <template>
   <div class="profile-view">
-    <p class="profile-modal__hint">Выберите, как Megan Messenger выглядит на этом устройстве.</p>
+    <p class="modal-sheet__hint">Выберите, как Megan Messenger выглядит на этом устройстве.</p>
 
     <section class="profile-view__section" aria-label="Тема оформления">
       <button

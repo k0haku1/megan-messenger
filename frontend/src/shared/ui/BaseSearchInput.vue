@@ -1,6 +1,6 @@
 <template>
   <label class="search-field">
-    <span class="search-field__icon" aria-hidden="true">⌕</span>
+    <AppIcon class="search-field__icon" name="search" size="sm" />
     <input
       ref="inputRef"
       :value="modelValue"
@@ -13,6 +13,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import AppIcon from '@/shared/ui/AppIcon.vue'
 
 defineProps<{ modelValue: string; placeholder?: string }>()
 defineEmits<{ 'update:modelValue': [value: string] }>()

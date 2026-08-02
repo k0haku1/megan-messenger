@@ -1,6 +1,6 @@
 <template>
   <div class="profile-view">
-    <p class="profile-modal__hint">{{ USERNAME_HINT }}</p>
+    <p class="modal-sheet__hint">{{ USERNAME_HINT }}</p>
 
     <form class="auth-form" @submit.prevent="submit()">
       <BaseTextField
@@ -10,7 +10,7 @@
         autocomplete="username"
         :error="fieldError"
       />
-      <p v-if="success" class="profile-modal__success">{{ success }}</p>
+      <p v-if="success" class="modal-sheet__success">{{ success }}</p>
       <BaseButton type="submit" class="is-block" :disabled="isSaving">
         {{ isSaving ? 'Сохраняем…' : 'Сохранить username' }}
       </BaseButton>
