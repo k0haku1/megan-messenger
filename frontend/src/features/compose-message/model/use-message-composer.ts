@@ -4,7 +4,6 @@ import {
   sendConversationMessage,
   sendDirectMessage,
 } from '@/features/send-message/model/send-message'
-import { formatReplyContent } from '@/entities/message/lib/format-reply'
 import type { Message } from '@/entities/message/model/types'
 import type { PendingPeer } from '@/features/conversation-selection/model/conversation-selection.store'
 
@@ -56,9 +55,7 @@ export function useMessageComposer(options: {
       return
     }
 
-    const content = options.replyTo.value
-      ? formatReplyContent(options.replyTo.value, rawContent)
-      : rawContent
+    const replyToId = options.replyTo.value?.id
 
     isSending.value = true
     sendError.value = null
@@ -75,7 +72,7 @@ export function useMessageComposer(options: {
         return
       }
 
-      await sendConversationMessage(activeTarget.conversationId, content)
+      await sendConversationMessage(activeTarget.conversationId, rawContent, replyToId)
       draft.value = ''
       options.replyTo.value = null
     } catch (error) {

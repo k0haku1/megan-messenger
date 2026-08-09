@@ -15,7 +15,7 @@ export function useConversationMessages(conversationId: Ref<string | null>) {
 
     const hiddenIds = new Set(hiddenMessages.value.map((item) => item.id))
     return messages.value.filter(
-      (message) => message.conversationId === id && !hiddenIds.has(message.id),
+      (message) => message.conversationId === id && !message.deletedAt && !hiddenIds.has(message.id),
     )
   })
 }

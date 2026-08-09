@@ -39,7 +39,8 @@ import { computed, ref, watch } from 'vue'
 import { useConversations } from '@/entities/conversation/api/conversation.queries'
 import { getConversationTitle } from '@/entities/conversation/lib/display'
 import type { Message } from '@/entities/message/model/types'
-import { sendConversationMessage } from '@/features/send-message/model/send-message'
+import { messageApi } from '@/entities/message/api/message.api'
+import { upsertMessage } from '@/entities/message/api/message.repository'
 import { getApiErrorMessage } from '@/shared/lib/get-api-error-message'
 import BaseModalSheet from '@/shared/ui/BaseModalSheet.vue'
 
@@ -69,19 +70,15 @@ watch(
   },
 )
 
-function formatForwardedContent(message: Message): string {
-  const lines = message.content.split('\n')
-  const quoted = lines.map((line) => `> ${line}`).join('\n')
-  return `↪ ${message.sender.username}:\n${quoted}`
-}
-
 async function forwardTo(conversationId: string) {
   if (!props.message) return
 
   error.value = ''
   pendingId.value = conversationId
   try {
-    await sendConversationMessage(conversationId, formatForwardedContent(props.message))
+    if (!props.currentConversationId) return
+    const { message } = await messageApi.forward(props.currentConversationId, props.message.id, conversationId)
+    await upsertMessage(message)
     emit('forwarded', conversationId)
     emit('close')
   } catch (err) {

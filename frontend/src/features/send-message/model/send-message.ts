@@ -5,8 +5,8 @@ import { queryClient } from '@/shared/api/query-client'
 import { queryKeys } from '@/shared/api/query-keys'
 import { getApiErrorMessage } from '@/shared/lib/get-api-error-message'
 
-export async function sendConversationMessage(conversationId: string, content: string): Promise<Message> {
-  const { message } = await messageApi.send(conversationId, content)
+export async function sendConversationMessage(conversationId: string, content: string, replyToId?: string): Promise<Message> {
+  const { message } = await messageApi.send(conversationId, content, replyToId)
   await upsertMessage(message)
   return message
 }

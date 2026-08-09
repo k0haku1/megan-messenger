@@ -12,18 +12,37 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addMessageReaction = `-- name: AddMessageReaction :exec
+INSERT INTO message_reactions (message_id, user_id, emoji)
+VALUES ($1, $2, $3)
+ON CONFLICT DO NOTHING
+`
+
+type AddMessageReactionParams struct {
+	MessageID uuid.UUID `db:"message_id" json:"messageId"`
+	UserID    uuid.UUID `db:"user_id" json:"userId"`
+	Emoji     string    `db:"emoji" json:"emoji"`
+}
+
+func (q *Queries) AddMessageReaction(ctx context.Context, arg AddMessageReactionParams) error {
+	_, err := q.db.Exec(ctx, addMessageReaction, arg.MessageID, arg.UserID, arg.Emoji)
+	return err
+}
+
 const createMessage = `-- name: CreateMessage :one
-INSERT INTO messages (id, conversation_id, sender_id, content, created_at)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, conversation_id, sender_id, content, created_at
+INSERT INTO messages (id, conversation_id, sender_id, content, reply_to_id, forwarded_from_id, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, conversation_id, sender_id, content, created_at, reply_to_id, forwarded_from_id, deleted_at
 `
 
 type CreateMessageParams struct {
-	ID             uuid.UUID          `db:"id" json:"id"`
-	ConversationID uuid.UUID          `db:"conversation_id" json:"conversationId"`
-	SenderID       uuid.UUID          `db:"sender_id" json:"senderId"`
-	Content        string             `db:"content" json:"content"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	ID              uuid.UUID          `db:"id" json:"id"`
+	ConversationID  uuid.UUID          `db:"conversation_id" json:"conversationId"`
+	SenderID        uuid.UUID          `db:"sender_id" json:"senderId"`
+	Content         string             `db:"content" json:"content"`
+	ReplyToID       pgtype.UUID        `db:"reply_to_id" json:"replyToId"`
+	ForwardedFromID pgtype.UUID        `db:"forwarded_from_id" json:"forwardedFromId"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error) {
@@ -32,6 +51,8 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		arg.ConversationID,
 		arg.SenderID,
 		arg.Content,
+		arg.ReplyToID,
+		arg.ForwardedFromID,
 		arg.CreatedAt,
 	)
 	var i Message
@@ -41,6 +62,37 @@ func (q *Queries) CreateMessage(ctx context.Context, arg CreateMessageParams) (M
 		&i.SenderID,
 		&i.Content,
 		&i.CreatedAt,
+		&i.ReplyToID,
+		&i.ForwardedFromID,
+		&i.DeletedAt,
+	)
+	return i, err
+}
+
+const deleteMessageForEveryone = `-- name: DeleteMessageForEveryone :one
+UPDATE messages
+SET deleted_at = NOW(), content = ''
+WHERE id = $1 AND sender_id = $2 AND deleted_at IS NULL
+RETURNING id, conversation_id, sender_id, content, created_at, reply_to_id, forwarded_from_id, deleted_at
+`
+
+type DeleteMessageForEveryoneParams struct {
+	ID       uuid.UUID `db:"id" json:"id"`
+	SenderID uuid.UUID `db:"sender_id" json:"senderId"`
+}
+
+func (q *Queries) DeleteMessageForEveryone(ctx context.Context, arg DeleteMessageForEveryoneParams) (Message, error) {
+	row := q.db.QueryRow(ctx, deleteMessageForEveryone, arg.ID, arg.SenderID)
+	var i Message
+	err := row.Scan(
+		&i.ID,
+		&i.ConversationID,
+		&i.SenderID,
+		&i.Content,
+		&i.CreatedAt,
+		&i.ReplyToID,
+		&i.ForwardedFromID,
+		&i.DeletedAt,
 	)
 	return i, err
 }
@@ -50,6 +102,9 @@ SELECT m.id,
        m.conversation_id,
        m.sender_id,
        m.content,
+       m.reply_to_id,
+       m.forwarded_from_id,
+       m.deleted_at,
        m.created_at,
        u.username,
        u.avatar_url
@@ -59,13 +114,16 @@ WHERE m.id = $1
 `
 
 type GetMessageByIDRow struct {
-	ID             uuid.UUID          `db:"id" json:"id"`
-	ConversationID uuid.UUID          `db:"conversation_id" json:"conversationId"`
-	SenderID       uuid.UUID          `db:"sender_id" json:"senderId"`
-	Content        string             `db:"content" json:"content"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
-	Username       pgtype.Text        `db:"username" json:"username"`
-	AvatarUrl      pgtype.Text        `db:"avatar_url" json:"avatarUrl"`
+	ID              uuid.UUID          `db:"id" json:"id"`
+	ConversationID  uuid.UUID          `db:"conversation_id" json:"conversationId"`
+	SenderID        uuid.UUID          `db:"sender_id" json:"senderId"`
+	Content         string             `db:"content" json:"content"`
+	ReplyToID       pgtype.UUID        `db:"reply_to_id" json:"replyToId"`
+	ForwardedFromID pgtype.UUID        `db:"forwarded_from_id" json:"forwardedFromId"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deletedAt"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	Username        pgtype.Text        `db:"username" json:"username"`
+	AvatarUrl       pgtype.Text        `db:"avatar_url" json:"avatarUrl"`
 }
 
 func (q *Queries) GetMessageByID(ctx context.Context, id uuid.UUID) (GetMessageByIDRow, error) {
@@ -76,6 +134,9 @@ func (q *Queries) GetMessageByID(ctx context.Context, id uuid.UUID) (GetMessageB
 		&i.ConversationID,
 		&i.SenderID,
 		&i.Content,
+		&i.ReplyToID,
+		&i.ForwardedFromID,
+		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.Username,
 		&i.AvatarUrl,
@@ -83,22 +144,104 @@ func (q *Queries) GetMessageByID(ctx context.Context, id uuid.UUID) (GetMessageB
 	return i, err
 }
 
+const getMessageReactionUsers = `-- name: GetMessageReactionUsers :many
+SELECT mr.emoji, u.id, u.username, u.avatar_url
+FROM message_reactions mr
+JOIN users u ON u.id = mr.user_id
+WHERE mr.message_id = $1
+ORDER BY mr.emoji, u.username
+`
+
+type GetMessageReactionUsersRow struct {
+	Emoji     string      `db:"emoji" json:"emoji"`
+	ID        uuid.UUID   `db:"id" json:"id"`
+	Username  pgtype.Text `db:"username" json:"username"`
+	AvatarUrl pgtype.Text `db:"avatar_url" json:"avatarUrl"`
+}
+
+func (q *Queries) GetMessageReactionUsers(ctx context.Context, messageID uuid.UUID) ([]GetMessageReactionUsersRow, error) {
+	rows, err := q.db.Query(ctx, getMessageReactionUsers, messageID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetMessageReactionUsersRow{}
+	for rows.Next() {
+		var i GetMessageReactionUsersRow
+		if err := rows.Scan(
+			&i.Emoji,
+			&i.ID,
+			&i.Username,
+			&i.AvatarUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getMessageReactions = `-- name: GetMessageReactions :many
+SELECT emoji, COUNT(*)::bigint AS count, BOOL_OR(user_id = $2) AS reacted_by_me
+FROM message_reactions
+WHERE message_id = $1
+GROUP BY emoji
+ORDER BY emoji
+`
+
+type GetMessageReactionsParams struct {
+	MessageID uuid.UUID `db:"message_id" json:"messageId"`
+	UserID    uuid.UUID `db:"user_id" json:"userId"`
+}
+
+type GetMessageReactionsRow struct {
+	Emoji       string `db:"emoji" json:"emoji"`
+	Count       int64  `db:"count" json:"count"`
+	ReactedByMe bool   `db:"reacted_by_me" json:"reactedByMe"`
+}
+
+func (q *Queries) GetMessageReactions(ctx context.Context, arg GetMessageReactionsParams) ([]GetMessageReactionsRow, error) {
+	rows, err := q.db.Query(ctx, getMessageReactions, arg.MessageID, arg.UserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []GetMessageReactionsRow{}
+	for rows.Next() {
+		var i GetMessageReactionsRow
+		if err := rows.Scan(&i.Emoji, &i.Count, &i.ReactedByMe); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getMessagesPaging = `-- name: GetMessagesPaging :many
-SELECT m.id, m.conversation_id, m.sender_id, m.content, m.created_at, u.id, u.phone, u.username, u.password_hash, u.avatar_url, u.created_at, u.username_searchable, u.dm_policy
+SELECT m.id, m.conversation_id, m.sender_id, m.content, m.created_at, m.reply_to_id, m.forwarded_from_id, m.deleted_at, u.id, u.phone, u.username, u.password_hash, u.avatar_url, u.created_at, u.username_searchable, u.dm_policy
 FROM messages m
          JOIN users u ON u.id = m.sender_id
 WHERE m.conversation_id = $1::uuid
+  AND m.deleted_at IS NULL
+  AND NOT EXISTS (SELECT 1 FROM hidden_messages hm WHERE hm.message_id = m.id AND hm.user_id = $2::uuid)
   AND (
-    $2::timestamptz IS NULL
+    $3::timestamptz IS NULL
         OR
-    (m.created_at, m.id) < ($2::timestamptz, $3::uuid)
+    (m.created_at, m.id) < ($3::timestamptz, $4::uuid)
     )
 ORDER BY m.created_at DESC, m.id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type GetMessagesPagingParams struct {
 	ConversationID  uuid.UUID          `db:"conversation_id" json:"conversationId"`
+	UserID          uuid.UUID          `db:"user_id" json:"userId"`
 	CursorCreatedAt pgtype.Timestamptz `db:"cursor_created_at" json:"cursorCreatedAt"`
 	CursorID        uuid.UUID          `db:"cursor_id" json:"cursorId"`
 	Limit           int32              `db:"limit_" json:"limit"`
@@ -110,6 +253,9 @@ type GetMessagesPagingRow struct {
 	SenderID           uuid.UUID          `db:"sender_id" json:"senderId"`
 	Content            string             `db:"content" json:"content"`
 	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	ReplyToID          pgtype.UUID        `db:"reply_to_id" json:"replyToId"`
+	ForwardedFromID    pgtype.UUID        `db:"forwarded_from_id" json:"forwardedFromId"`
+	DeletedAt          pgtype.Timestamptz `db:"deleted_at" json:"deletedAt"`
 	ID_2               uuid.UUID          `db:"id_2" json:"id2"`
 	Phone              string             `db:"phone" json:"phone"`
 	Username           pgtype.Text        `db:"username" json:"username"`
@@ -123,6 +269,7 @@ type GetMessagesPagingRow struct {
 func (q *Queries) GetMessagesPaging(ctx context.Context, arg GetMessagesPagingParams) ([]GetMessagesPagingRow, error) {
 	rows, err := q.db.Query(ctx, getMessagesPaging,
 		arg.ConversationID,
+		arg.UserID,
 		arg.CursorCreatedAt,
 		arg.CursorID,
 		arg.Limit,
@@ -140,6 +287,9 @@ func (q *Queries) GetMessagesPaging(ctx context.Context, arg GetMessagesPagingPa
 			&i.SenderID,
 			&i.Content,
 			&i.CreatedAt,
+			&i.ReplyToID,
+			&i.ForwardedFromID,
+			&i.DeletedAt,
 			&i.ID_2,
 			&i.Phone,
 			&i.Username,
@@ -157,4 +307,36 @@ func (q *Queries) GetMessagesPaging(ctx context.Context, arg GetMessagesPagingPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const hideMessageForUser = `-- name: HideMessageForUser :exec
+INSERT INTO hidden_messages (message_id, user_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type HideMessageForUserParams struct {
+	MessageID uuid.UUID `db:"message_id" json:"messageId"`
+	UserID    uuid.UUID `db:"user_id" json:"userId"`
+}
+
+func (q *Queries) HideMessageForUser(ctx context.Context, arg HideMessageForUserParams) error {
+	_, err := q.db.Exec(ctx, hideMessageForUser, arg.MessageID, arg.UserID)
+	return err
+}
+
+const removeMessageReaction = `-- name: RemoveMessageReaction :exec
+DELETE FROM message_reactions
+WHERE message_id = $1 AND user_id = $2 AND emoji = $3
+`
+
+type RemoveMessageReactionParams struct {
+	MessageID uuid.UUID `db:"message_id" json:"messageId"`
+	UserID    uuid.UUID `db:"user_id" json:"userId"`
+	Emoji     string    `db:"emoji" json:"emoji"`
+}
+
+func (q *Queries) RemoveMessageReaction(ctx context.Context, arg RemoveMessageReactionParams) error {
+	_, err := q.db.Exec(ctx, removeMessageReaction, arg.MessageID, arg.UserID, arg.Emoji)
+	return err
 }

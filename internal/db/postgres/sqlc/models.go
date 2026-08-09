@@ -161,12 +161,28 @@ type DmPair struct {
 	ConversationID uuid.UUID `db:"conversation_id" json:"conversationId"`
 }
 
+type HiddenMessage struct {
+	MessageID uuid.UUID          `db:"message_id" json:"messageId"`
+	UserID    uuid.UUID          `db:"user_id" json:"userId"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+}
+
 type Message struct {
-	ID             uuid.UUID          `db:"id" json:"id"`
-	ConversationID uuid.UUID          `db:"conversation_id" json:"conversationId"`
-	SenderID       uuid.UUID          `db:"sender_id" json:"senderId"`
-	Content        string             `db:"content" json:"content"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	ID              uuid.UUID          `db:"id" json:"id"`
+	ConversationID  uuid.UUID          `db:"conversation_id" json:"conversationId"`
+	SenderID        uuid.UUID          `db:"sender_id" json:"senderId"`
+	Content         string             `db:"content" json:"content"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	ReplyToID       pgtype.UUID        `db:"reply_to_id" json:"replyToId"`
+	ForwardedFromID pgtype.UUID        `db:"forwarded_from_id" json:"forwardedFromId"`
+	DeletedAt       pgtype.Timestamptz `db:"deleted_at" json:"deletedAt"`
+}
+
+type MessageReaction struct {
+	MessageID uuid.UUID          `db:"message_id" json:"messageId"`
+	UserID    uuid.UUID          `db:"user_id" json:"userId"`
+	Emoji     string             `db:"emoji" json:"emoji"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
 }
 
 type PhoneOtpCode struct {

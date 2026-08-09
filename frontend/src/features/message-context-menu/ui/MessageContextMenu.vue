@@ -19,12 +19,19 @@
       >
         {{ item.label }}
       </button>
+      <div v-if="reactionDetails.length" class="message-context-menu__divider" />
+      <div v-if="reactionDetails.length" class="message-context-menu__reactions" aria-label="Реакции">
+        <div v-for="reaction in reactionDetails" :key="reaction.emoji" class="message-context-menu__reaction">
+          <span>{{ reaction.emoji }}</span>
+          <span>{{ reaction.users.join(', ') }}</span>
+        </div>
+      </div>
     </div>
   </Teleport>
 </template>
 
 <script setup lang="ts">
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 export interface MessageContextMenuItem {
   id: string
@@ -41,15 +48,22 @@ export interface MessageContextMenuAnchor {
   align: 'start' | 'end'
 }
 
+export interface MessageContextMenuReactionDetail {
+  emoji: string
+  users: string[]
+}
+
 const props = defineProps<{
   open: boolean
   anchor: MessageContextMenuAnchor | null
   items: MessageContextMenuItem[]
+  reactionDetails?: MessageContextMenuReactionDetail[]
 }>()
 
 const emit = defineEmits<{ close: []; select: [actionId: string] }>()
 
 const menuRef = ref<HTMLElement | null>(null)
+const reactionDetails = computed(() => props.reactionDetails ?? [])
 
 watch(
   () => [props.open, props.anchor] as const,
@@ -160,4 +174,8 @@ function onScrollClose() {
   opacity: 0.45;
   cursor: not-allowed;
 }
+.message-context-menu__divider { height: 1px; margin: 4px 6px; background: var(--color-border); }
+.message-context-menu__reactions { padding: 4px 8px 6px; }
+.message-context-menu__reaction { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 6px; padding: 3px 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.message-context-menu__reaction span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

@@ -91,6 +91,13 @@ func (app *application) mount() http.Handler {
 					r.Get("/projects", projectHandler.ListConversationProjects)
 					r.Get("/messages", messageHandler.ListMessages)
 					r.Post("/messages", messageHandler.SendMessage)
+					r.Route("/messages/{messageID}", func(r chi.Router) {
+						r.Delete("/", messageHandler.HideForMe)
+						r.Delete("/everyone", messageHandler.DeleteForEveryone)
+						r.Post("/forward", messageHandler.ForwardMessage)
+						r.Post("/reactions", messageHandler.AddReaction)
+						r.Delete("/reactions", messageHandler.RemoveReaction)
+					})
 				})
 			})
 

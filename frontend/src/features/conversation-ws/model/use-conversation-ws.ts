@@ -1,5 +1,5 @@
 import { onScopeDispose, type Ref, watch } from 'vue'
-import { upsertMessage } from '@/entities/message/api/message.repository'
+import { removeMessage, upsertMessage } from '@/entities/message/api/message.repository'
 import type { Message } from '@/entities/message/model/types'
 import { useSessionStore } from '@/entities/session/model/session.store'
 import { queryClient } from '@/shared/api/query-client'
@@ -55,7 +55,7 @@ export function useConversationWs(conversationId: Ref<string | null>): void {
     socket.onmessage = (event) => {
       try {
         const message = JSON.parse(String(event.data)) as Message
-        void upsertMessage(message).then(() => {
+        void upsertMessageFromEvent(message, session.user?.id).then(() => {
           void queryClient.invalidateQueries({ queryKey: queryKeys.conversations })
         })
       } catch {
@@ -83,4 +83,22 @@ export function useConversationWs(conversationId: Ref<string | null>): void {
   )
 
   onScopeDispose(disconnect)
+}
+
+async function upsertMessageFromEvent(message: Message, currentUserId?: string): Promise<void> {
+	if (message.deletedAt) {
+		await removeMessage(message.id)
+		return
+	}
+  if (message.reactionUpdatedBy && message.reactionUpdatedBy !== currentUserId) {
+    const previous = await db.messages.get(message.id)
+    if (previous) {
+      const ownReactions = new Map((previous.reactions ?? []).map((reaction) => [reaction.emoji, reaction.reactedByMe]))
+      message.reactions = (message.reactions ?? []).map((reaction) => ({
+        ...reaction,
+        reactedByMe: ownReactions.get(reaction.emoji) ?? false,
+      }))
+    }
+  }
+  await upsertMessage(message)
 }

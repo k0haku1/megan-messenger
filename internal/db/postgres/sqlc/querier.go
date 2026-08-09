@@ -13,6 +13,7 @@ import (
 
 type Querier interface {
 	AddConversationMember(ctx context.Context, arg AddConversationMemberParams) error
+	AddMessageReaction(ctx context.Context, arg AddMessageReactionParams) error
 	AddProjectMember(ctx context.Context, arg AddProjectMemberParams) error
 	ClearUserPassword(ctx context.Context, id uuid.UUID) error
 	ConversationExists(ctx context.Context, id uuid.UUID) (bool, error)
@@ -23,12 +24,15 @@ type Querier interface {
 	CreateProjectDecision(ctx context.Context, arg CreateProjectDecisionParams) (ProjectDecision, error)
 	CreateProjectDoc(ctx context.Context, arg CreateProjectDocParams) (ProjectDoc, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteMessageForEveryone(ctx context.Context, arg DeleteMessageForEveryoneParams) (Message, error)
 	DeletePhoneOTP(ctx context.Context, phone string) error
 	DeleteProjectDoc(ctx context.Context, arg DeleteProjectDocParams) error
 	FindDMConversation(ctx context.Context, arg FindDMConversationParams) (uuid.UUID, error)
 	GetConversation(ctx context.Context, id uuid.UUID) (Conversation, error)
 	GetConversationBySlug(ctx context.Context, slug pgtype.Text) (Conversation, error)
 	GetMessageByID(ctx context.Context, id uuid.UUID) (GetMessageByIDRow, error)
+	GetMessageReactionUsers(ctx context.Context, messageID uuid.UUID) ([]GetMessageReactionUsersRow, error)
+	GetMessageReactions(ctx context.Context, arg GetMessageReactionsParams) ([]GetMessageReactionsRow, error)
 	GetMessagesPaging(ctx context.Context, arg GetMessagesPagingParams) ([]GetMessagesPagingRow, error)
 	GetPhoneOTP(ctx context.Context, phone string) (PhoneOtpCode, error)
 	GetProject(ctx context.Context, id uuid.UUID) (Project, error)
@@ -40,6 +44,7 @@ type Querier interface {
 	GetUserByPhone(ctx context.Context, phone string) (User, error)
 	GetUserByUsername(ctx context.Context, lower string) (User, error)
 	GetUserConversations(ctx context.Context, userID uuid.UUID) ([]GetUserConversationsRow, error)
+	HideMessageForUser(ctx context.Context, arg HideMessageForUserParams) error
 	IncrementPhoneOTPAttempts(ctx context.Context, phone string) error
 	IsConversationMember(ctx context.Context, arg IsConversationMemberParams) (bool, error)
 	IsProjectConversationLinked(ctx context.Context, arg IsProjectConversationLinkedParams) (bool, error)
@@ -53,6 +58,7 @@ type Querier interface {
 	ListUserProjects(ctx context.Context, userID uuid.UUID) ([]ListUserProjectsRow, error)
 	ProjectDocSlugExists(ctx context.Context, arg ProjectDocSlugExistsParams) (bool, error)
 	RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) error
+	RemoveMessageReaction(ctx context.Context, arg RemoveMessageReactionParams) error
 	SearchUsersByUsernamePrefix(ctx context.Context, arg SearchUsersByUsernamePrefixParams) ([]SearchUsersByUsernamePrefixRow, error)
 	SetUsername(ctx context.Context, arg SetUsernameParams) error
 	UnlinkProjectConversation(ctx context.Context, arg UnlinkProjectConversationParams) error
