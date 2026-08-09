@@ -14,7 +14,12 @@
 
     <template v-else-if="profileStore.profile">
       <section class="modal-sheet__identity">
-        <BaseAvatar :name="profileStore.profile.username" size="lg" :color="0" />
+        <BaseAvatar
+          :name="profileStore.profile.username"
+          :src="profileStore.profile.avatarUrl"
+          size="lg"
+          :color="0"
+        />
         <div class="modal-sheet__identity-meta">
           <strong>@{{ profileStore.profile.username }}</strong>
           <span>Открытый профиль Megan</span>

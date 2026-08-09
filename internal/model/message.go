@@ -23,16 +23,17 @@ type MessageReaction struct {
 }
 
 type Message struct {
-	ID                uuid.UUID         `json:"id" binding:"required"`
-	ConversationID    uuid.UUID         `json:"conversationId" binding:"required"`
-	Content           string            `json:"content" binding:"required"`
-	ReplyToID         *uuid.UUID        `json:"replyToId,omitempty"`
-	ForwardedFromID   *uuid.UUID        `json:"forwardedFromId,omitempty"`
-	DeletedAt         *time.Time        `json:"deletedAt,omitempty"`
-	Reactions         []MessageReaction `json:"reactions"`
-	ReactionUpdatedBy *uuid.UUID        `json:"reactionUpdatedBy,omitempty"`
-	Sender            MessageSender     `json:"sender" binding:"required"`
-	CreatedAt         time.Time         `json:"createdAt" binding:"required"`
+	ID                uuid.UUID           `json:"id" binding:"required"`
+	ConversationID    uuid.UUID           `json:"conversationId" binding:"required"`
+	Content           string              `json:"content"`
+	ReplyToID         *uuid.UUID          `json:"replyToId,omitempty"`
+	ForwardedFromID   *uuid.UUID          `json:"forwardedFromId,omitempty"`
+	DeletedAt         *time.Time          `json:"deletedAt,omitempty"`
+	Reactions         []MessageReaction   `json:"reactions"`
+	ReactionUpdatedBy *uuid.UUID          `json:"reactionUpdatedBy,omitempty"`
+	Attachments       []MessageAttachment `json:"attachments,omitempty"`
+	Sender            MessageSender       `json:"sender" binding:"required"`
+	CreatedAt         time.Time           `json:"createdAt" binding:"required"`
 }
 
 func NewMessage(conversationID uuid.UUID, content string, sender User) (Message, error) {
@@ -45,10 +46,11 @@ func NewMessage(conversationID uuid.UUID, content string, sender User) (Message,
 		Content:        content,
 		Sender: MessageSender{
 			ID:        sender.ID,
-			Username:  sender.Username, // empty until onboarding completes
+			Username:  sender.Username,
 			AvatarURL: sender.AvatarURL,
 		},
-		Reactions: []MessageReaction{},
-		CreatedAt: time.Now(),
+		Reactions:   []MessageReaction{},
+		Attachments: []MessageAttachment{},
+		CreatedAt:   time.Now(),
 	}, nil
 }

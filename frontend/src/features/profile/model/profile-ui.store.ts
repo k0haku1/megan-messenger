@@ -3,6 +3,7 @@ import { defineStore } from 'pinia'
 
 export const PROFILE_VIEWS = [
   'main',
+  'edit',
   'password',
   'theme',
   'username',
@@ -14,6 +15,7 @@ export type ProfileView = (typeof PROFILE_VIEWS)[number]
 
 const VIEW_TITLES: Record<ProfileView, string> = {
   main: 'Мой профиль',
+  edit: 'Редактировать профиль',
   password: 'Облачный пароль',
   theme: 'Тема оформления',
   username: 'Username',
@@ -23,9 +25,10 @@ const VIEW_TITLES: Record<ProfileView, string> = {
 }
 
 const BACK_TARGET: Partial<Record<ProfileView, ProfileView>> = {
+  edit: 'main',
   password: 'main',
   theme: 'main',
-  username: 'main',
+  username: 'edit',
   privacy: 'main',
   'privacy-find': 'privacy',
   'privacy-dm': 'privacy',

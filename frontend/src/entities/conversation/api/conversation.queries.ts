@@ -3,14 +3,20 @@ import { computed } from 'vue'
 import { conversationApi } from './conversation.api'
 import { useSessionStore } from '@/entities/session/model/session.store'
 import { queryKeys } from '@/shared/api/query-keys'
+import { getConversationActivityAt } from '@/entities/conversation/lib/display'
 import type { Conversation } from '@/entities/conversation/model/types'
 
 function sortConversations(conversations: Conversation[]): Conversation[] {
   return [...conversations].sort((left, right) => {
-    const leftTime = left.createdAt ? new Date(left.createdAt).getTime() : 0
-    const rightTime = right.createdAt ? new Date(right.createdAt).getTime() : 0
+    const leftTime = activityTime(left)
+    const rightTime = activityTime(right)
     return rightTime - leftTime
   })
+}
+
+function activityTime(conversation: Conversation): number {
+  const iso = getConversationActivityAt(conversation)
+  return iso ? new Date(iso).getTime() : 0
 }
 
 export function useConversations() {

@@ -28,7 +28,14 @@ func (s *Service) SearchUsers(
 		limit = searchMaxLimit
 	}
 
-	return s.repo.SearchByUsernamePrefix(ctx, query, viewerID, limit)
+	results, err := s.repo.SearchByUsernamePrefix(ctx, query, viewerID, limit)
+	if err != nil {
+		return nil, err
+	}
+	for i := range results {
+		results[i].AvatarURL = s.urls.Resolve(ctx, results[i].AvatarURL)
+	}
+	return results, nil
 }
 
 func (s *Service) GetPublicProfile(
@@ -61,7 +68,7 @@ func (s *Service) GetPublicProfile(
 	return model.PublicUserProfile{
 		ID:         user.ID,
 		Username:   user.Username,
-		AvatarURL:  user.AvatarURL,
+		AvatarURL:  s.urls.Resolve(ctx, user.AvatarURL),
 		CanMessage: canMessage,
 	}, nil
 }
@@ -97,6 +104,7 @@ func (s *Service) ChangeUsername(ctx context.Context, userID uuid.UUID, rawUsern
 	}
 
 	user.Username = username
+	s.resolveUserAvatar(ctx, &user)
 	return user, nil
 }
 
@@ -121,6 +129,7 @@ func (s *Service) UpdatePrivacy(
 
 	user.UsernameSearchable = searchable
 	user.DMPolicy = policy
+	s.resolveUserAvatar(ctx, &user)
 	return user, nil
 }
 

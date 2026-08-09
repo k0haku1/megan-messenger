@@ -9,7 +9,7 @@
       type="button"
       @click="openProfile(user.username)"
     >
-      <BaseAvatar :name="user.username" :color="index" size="md" />
+      <BaseAvatar :name="user.username" :src="user.avatarUrl" :color="index" size="md" />
       <span class="global-search-results__meta">
         <strong>@{{ user.username }}</strong>
         <small>Написать сообщение</small>

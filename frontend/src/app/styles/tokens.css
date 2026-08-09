@@ -6,10 +6,10 @@
   --color-bg-elevated: #ffffff;
   --color-bg-subtle: #f4f6f8;
   --color-bg-hover: #f1f3f5;
-  --color-bg-active: #9c74fb;
+  --color-bg-active: #8f82c4;
   --color-bg-chat: #ddd8e8;
   --color-bg-message: #ffffff;
-  --color-bg-message-own: #f0ebff;
+  --color-bg-message-own: #f2effa;
   --color-bg-glass: rgb(255 255 255 / 78%);
   --color-bg-placeholder: rgb(255 255 255 / 28%);
   --color-text-primary: #182533;
@@ -17,13 +17,21 @@
   --color-text-tertiary: #a2acb4;
   --color-text-on-accent: #ffffff;
   --color-text-on-accent-muted: rgb(255 255 255 / 78%);
-  --color-accent: #9c74fb;
-  --color-accent-hover: #8247f0;
-  --color-accent-gradient-from: #bea8ff;
-  --color-accent-gradient-to: #9c74fb;
-  --shadow-accent: 0 7px 18px rgb(156 116 251 / 30%);
-  --color-auth-glow-accent: rgb(156 116 251 / 16%);
-  --color-auth-glow-muted: rgb(83 121 141 / 10%);
+  --color-accent: #8f82c4;
+  --color-accent-hover: #7a6db0;
+  --color-accent-gradient-from: #c5bce8;
+  --color-accent-gradient-to: #9a8dcf;
+  --shadow-accent: 0 7px 18px rgb(143 130 196 / 22%);
+  --color-auth-glow-accent: rgb(143 130 196 / 18%);
+  --color-auth-glow-muted: rgb(83 121 141 / 12%);
+  --bg-atmosphere:
+    radial-gradient(circle at top left, var(--color-auth-glow-accent), transparent 42%),
+    radial-gradient(circle at bottom right, var(--color-auth-glow-muted), transparent 40%),
+    var(--color-bg-app);
+  --bg-chat-atmosphere:
+    radial-gradient(circle at top left, var(--color-auth-glow-accent), transparent 42%),
+    radial-gradient(circle at bottom right, var(--color-auth-glow-muted), transparent 40%),
+    var(--color-bg-chat);
   --color-border: #dfe3e6;
   --color-danger: #df3f40;
   --color-success: #2f9e62;
@@ -55,10 +63,10 @@
   --color-bg-elevated: #111827;
   --color-bg-subtle: #1f2937;
   --color-bg-hover: #374151;
-  --color-bg-active: #b198ff;
-  --color-bg-chat: #151b28;
+  --color-bg-active: #b5a8d9;
+  --color-bg-chat: #101726;
   --color-bg-message: #1f2937;
-  --color-bg-message-own: #2d2640;
+  --color-bg-message-own: #28243a;
   --color-bg-glass: rgb(17 24 39 / 82%);
   --color-bg-placeholder: rgb(17 24 39 / 45%);
   --color-text-primary: #f9fafb;
@@ -66,13 +74,21 @@
   --color-text-tertiary: #9ca3af;
   --color-text-on-accent: #111827;
   --color-text-on-accent-muted: rgb(17 24 39 / 72%);
-  --color-accent: #b198ff;
-  --color-accent-hover: #bea8ff;
-  --color-accent-gradient-from: #bea8ff;
-  --color-accent-gradient-to: #9c74fb;
-  --shadow-accent: 0 7px 18px rgb(177 152 255 / 22%);
-  --color-auth-glow-accent: rgb(177 152 255 / 14%);
-  --color-auth-glow-muted: rgb(156 116 251 / 8%);
+  --color-accent: #b5a8d9;
+  --color-accent-hover: #c9bfe6;
+  --color-accent-gradient-from: #c9bfe6;
+  --color-accent-gradient-to: #9a8dcf;
+  --shadow-accent: 0 7px 18px rgb(181 168 217 / 18%);
+  --color-auth-glow-accent: rgb(181 168 217 / 16%);
+  --color-auth-glow-muted: rgb(100 140 220 / 12%);
+  --bg-atmosphere:
+    radial-gradient(circle at top left, var(--color-auth-glow-accent), transparent 42%),
+    radial-gradient(circle at bottom right, var(--color-auth-glow-muted), transparent 40%),
+    var(--color-bg-app);
+  --bg-chat-atmosphere:
+    radial-gradient(circle at top left, var(--color-auth-glow-accent), transparent 42%),
+    radial-gradient(circle at bottom right, var(--color-auth-glow-muted), transparent 40%),
+    var(--color-bg-chat);
   --color-border: #374151;
   --color-danger: #f87171;
   --color-success: #4ade80;

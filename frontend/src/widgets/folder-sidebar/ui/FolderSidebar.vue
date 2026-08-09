@@ -30,7 +30,7 @@
         :active="menuOpen"
         @click="menuOpen = !menuOpen"
       >
-        <BaseAvatar :name="displayName" size="sm" :color="avatarColor" />
+        <BaseAvatar :name="displayName" :src="session.user?.avatarUrl" size="sm" :color="avatarColor" />
       </BaseIconButton>
 
       <div

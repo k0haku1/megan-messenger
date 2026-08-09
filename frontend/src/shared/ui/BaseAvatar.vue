@@ -16,7 +16,7 @@ const props = withDefaults(
   defineProps<{
     name: string;
     src?: string;
-    size?: "sm" | "md" | "lg";
+    size?: "sm" | "md" | "lg" | "xl";
     color?: number;
   }>(),
   {

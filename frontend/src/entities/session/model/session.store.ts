@@ -2,20 +2,20 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { authApi } from '../api/auth.api'
 import type { AuthResult, SessionUser } from './types'
+import { getAccessToken, setAccessToken, subscribeAccessToken } from '@/shared/api/access-token'
 import { clearLocalCache } from '@/shared/lib/clear-local-cache'
 
-const ACCESS_TOKEN_KEY = 'mm_access_token'
-
-function readStoredToken(): string | null {
-  return localStorage.getItem(ACCESS_TOKEN_KEY)
-}
-
 export const useSessionStore = defineStore('session', () => {
-  const accessToken = ref<string | null>(readStoredToken())
+  const accessToken = ref<string | null>(getAccessToken())
   const user = ref<SessionUser | null>(null)
   const challengeToken = ref<string | null>(null)
   const pendingPhone = ref('')
   const bootstrapped = ref(false)
+
+  subscribeAccessToken((token) => {
+    accessToken.value = token
+    if (!token) user.value = null
+  })
 
   const isAuthenticated = computed(() => Boolean(accessToken.value))
   const needsUsername = computed(() => Boolean(accessToken.value && user.value && !user.value.onboardingComplete))
@@ -23,9 +23,7 @@ export const useSessionStore = defineStore('session', () => {
   const isReady = computed(() => bootstrapped.value)
 
   function persistToken(token: string | null) {
-    accessToken.value = token
-    if (token) localStorage.setItem(ACCESS_TOKEN_KEY, token)
-    else localStorage.removeItem(ACCESS_TOKEN_KEY)
+    setAccessToken(token)
   }
 
   function applyAuthResult(result: AuthResult) {

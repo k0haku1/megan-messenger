@@ -5,6 +5,7 @@ import (
 	"errors"
 	"megan-messenger/internal/model"
 	"megan-messenger/internal/repository"
+	"megan-messenger/internal/storage"
 	"megan-messenger/internal/user"
 
 	"github.com/google/uuid"
@@ -21,18 +22,34 @@ type Service struct {
 	repo     repository.ConversationRepository
 	users    repository.UserRepository
 	messages repository.MessageRepository
+	urls     *storage.URLResolver
 }
 
 func NewService(
 	repo repository.ConversationRepository,
 	users repository.UserRepository,
 	messages repository.MessageRepository,
+	urls *storage.URLResolver,
 ) *Service {
-	return &Service{repo: repo, users: users, messages: messages}
+	return &Service{repo: repo, users: users, messages: messages, urls: urls}
 }
 
 func (s *Service) ListByUser(ctx context.Context, userID uuid.UUID) ([]model.Conversation, error) {
-	return s.repo.ListByUser(ctx, userID)
+	conversations, err := s.repo.ListByUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for i := range conversations {
+		s.resolvePeerAvatar(ctx, conversations[i].Peer)
+	}
+	return conversations, nil
+}
+
+func (s *Service) resolvePeerAvatar(ctx context.Context, peer *model.ConversationPeer) {
+	if peer == nil || s.urls == nil {
+		return
+	}
+	peer.AvatarURL = s.urls.Resolve(ctx, peer.AvatarURL)
 }
 
 func (s *Service) CreateGroup(ctx context.Context, creatorID uuid.UUID, title string, memberIDs []uuid.UUID) (model.Conversation, error) {
@@ -93,7 +110,7 @@ func (s *Service) GetOrCreateDM(ctx context.Context, selfID, peerID uuid.UUID) (
 		if err != nil {
 			return model.Conversation{}, err
 		}
-		conv.Peer = peerToConversationPeer(peer)
+		conv.Peer = s.peerToConversationPeer(ctx, peer)
 		return conv, nil
 	}
 	if !errors.Is(err, pgx.ErrNoRows) {
@@ -124,16 +141,20 @@ func (s *Service) GetOrCreateDM(ctx context.Context, selfID, peerID uuid.UUID) (
 		return model.Conversation{}, err
 	}
 
-	created.Peer = peerToConversationPeer(peer)
+	created.Peer = s.peerToConversationPeer(ctx, peer)
 
 	return created, nil
 }
 
-func peerToConversationPeer(peer model.User) *model.ConversationPeer {
+func (s *Service) peerToConversationPeer(ctx context.Context, peer model.User) *model.ConversationPeer {
+	avatarURL := peer.AvatarURL
+	if s.urls != nil {
+		avatarURL = s.urls.Resolve(ctx, peer.AvatarURL)
+	}
 	return &model.ConversationPeer{
 		ID:        peer.ID,
 		Username:  peer.Username,
-		AvatarURL: peer.AvatarURL,
+		AvatarURL: avatarURL,
 	}
 }
 

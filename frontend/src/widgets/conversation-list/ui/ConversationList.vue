@@ -31,21 +31,19 @@
         type="button"
         @pointerdown="onItemPointerDown($event, conversation)"
       >
-        <BaseAvatar :name="getConversationAvatarName(conversation)" :color="index" size="lg" />
+        <BaseAvatar
+          :name="getConversationAvatarName(conversation)"
+          :src="getConversationAvatarUrl(conversation)"
+          :color="index"
+          size="lg"
+        />
         <span class="conversation-item__body">
           <span class="conversation-item__row">
             <strong>{{ getConversationTitle(conversation) }}</strong>
-            <time>{{
-              conversation.createdAt
-                ? new Date(conversation.createdAt).toLocaleDateString('ru', {
-                    day: 'numeric',
-                    month: 'short',
-                  })
-                : ''
-            }}</time>
+            <time>{{ formatConversationListTime(getConversationActivityAt(conversation)) }}</time>
           </span>
           <span class="conversation-item__preview">
-            {{ conversation.type === 'group' ? 'Групповой чат' : 'Личные сообщения' }}
+            {{ getConversationPreview(conversation) }}
           </span>
         </span>
       </button>
@@ -83,7 +81,11 @@ import { storeToRefs } from 'pinia'
 import { useConversations } from '@/entities/conversation/api/conversation.queries'
 import { useConversationSelectionStore } from '@/features/conversation-selection/model/conversation-selection.store'
 import {
+  formatConversationListTime,
+  getConversationActivityAt,
   getConversationAvatarName,
+  getConversationAvatarUrl,
+  getConversationPreview,
   getConversationTitle,
 } from '@/entities/conversation/lib/display'
 import type { Conversation } from '@/entities/conversation/model/types'

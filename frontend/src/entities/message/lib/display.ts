@@ -21,6 +21,21 @@ export function shouldShowSenderName(
   return messages[index - 1]?.sender.id !== message.sender.id
 }
 
+/** Avatar sits left of the last bubble in a consecutive sender group (Telegram-like). */
+export function shouldShowSenderAvatar(
+  message: Message,
+  index: number,
+  messages: Message[],
+  currentUserId?: string,
+): boolean {
+  if (isOwnMessage(message, currentUserId)) {
+    return false
+  }
+
+  const next = messages[index + 1]
+  return !next || next.sender.id !== message.sender.id
+}
+
 export function formatMessageTime(isoDate: string): string {
   return new Date(isoDate).toLocaleTimeString('ru', {
     hour: '2-digit',

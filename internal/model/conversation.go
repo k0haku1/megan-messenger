@@ -16,19 +16,29 @@ const (
 )
 
 type Conversation struct {
-	ID        uuid.UUID            `json:"id" binding:"required"`
-	Type      ConversationType     `json:"type" binding:"required"`
-	Title     string               `json:"title,omitempty"`
-	Slug      string               `json:"slug,omitempty"`
-	Peer      *ConversationPeer    `json:"peer,omitempty"`
-	Members   []ConversationMember `json:"members,omitempty"`
-	CreatedAt time.Time            `json:"createdAt"`
+	ID          uuid.UUID            `json:"id" binding:"required"`
+	Type        ConversationType     `json:"type" binding:"required"`
+	Title       string               `json:"title,omitempty"`
+	Slug        string               `json:"slug,omitempty"`
+	Peer        *ConversationPeer    `json:"peer,omitempty"`
+	Members     []ConversationMember `json:"members,omitempty"`
+	LastMessage *ConversationPreview `json:"lastMessage,omitempty"`
+	CreatedAt   time.Time            `json:"createdAt"`
 }
 
 type ConversationPeer struct {
 	ID        uuid.UUID `json:"id"`
 	Username  string    `json:"username"`
 	AvatarURL string    `json:"avatarUrl,omitempty"`
+}
+
+// ConversationPreview is the last visible message snippet for the chat list.
+type ConversationPreview struct {
+	ID              uuid.UUID `json:"id"`
+	Content         string    `json:"content"`
+	SenderUsername  string    `json:"senderUsername,omitempty"`
+	AttachmentKind  string    `json:"attachmentKind,omitempty"`
+	CreatedAt       time.Time `json:"createdAt"`
 }
 
 func NewGroupConversation(title string) (Conversation, error) {

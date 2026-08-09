@@ -49,3 +49,19 @@ func timePtr(value pgtype.Timestamptz) *time.Time {
 	}
 	return &value.Time
 }
+
+func int4Ptr(value pgtype.Int4) *int {
+	if !value.Valid {
+		return nil
+	}
+	v := int(value.Int32)
+	return &v
+}
+
+func int4FromPtr(value *int) pgtype.Int4 {
+	if value == nil {
+		return pgtype.Int4{}
+	}
+	return pgtype.Int4{Int32: int32(*value), Valid: true}
+}
+

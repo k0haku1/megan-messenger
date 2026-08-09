@@ -1,19 +1,12 @@
 <template>
   <BaseModalSheet
     :open="open"
-    title="Переслать сообщение"
+    :title="title"
     title-id="forward-message-title"
     compact
     scrollable
     @close="emit('close')"
   >
-    <blockquote v-if="message" class="forward-message-modal__quote">
-      <strong>{{ message.sender.username }}</strong>
-      <p>{{ message.content }}</p>
-    </blockquote>
-
-    <p class="forward-message-modal__hint">Выберите чат</p>
-
     <div v-if="targets.length === 0" class="forward-message-modal__empty">
       Нет других чатов для пересылки
     </div>
@@ -46,7 +39,7 @@ import BaseModalSheet from '@/shared/ui/BaseModalSheet.vue'
 
 const props = defineProps<{
   open: boolean
-  message: Message | null
+  messages: Message[]
   currentConversationId: string | null
 }>()
 
@@ -55,6 +48,12 @@ const emit = defineEmits<{ close: []; forwarded: [conversationId: string] }>()
 const { conversations } = useConversations()
 const error = ref('')
 const pendingId = ref<string | null>(null)
+
+const title = computed(() =>
+  props.messages.length > 1
+    ? `Переслать ${props.messages.length} сообщ.`
+    : 'Переслать сообщение',
+)
 
 const targets = computed(() =>
   conversations.value.filter((conversation) => conversation.id !== props.currentConversationId),
@@ -71,18 +70,22 @@ watch(
 )
 
 async function forwardTo(conversationId: string) {
-  if (!props.message) return
+  if (!props.messages.length || !props.currentConversationId) return
 
   error.value = ''
   pendingId.value = conversationId
   try {
-    if (!props.currentConversationId) return
-    const { message } = await messageApi.forward(props.currentConversationId, props.message.id, conversationId)
-    await upsertMessage(message)
+    const messageIds = props.messages.map((message) => message.id)
+    const { messages } = await messageApi.forward(
+      props.currentConversationId,
+      messageIds,
+      conversationId,
+    )
+    await Promise.all(messages.map((message) => upsertMessage(message)))
     emit('forwarded', conversationId)
     emit('close')
   } catch (err) {
-    error.value = getApiErrorMessage(err, { fallback: 'Не удалось переслать сообщение' })
+    error.value = getApiErrorMessage(err, { fallback: 'Не удалось переслать сообщения' })
   } finally {
     pendingId.value = null
   }
@@ -90,29 +93,6 @@ async function forwardTo(conversationId: string) {
 </script>
 
 <style scoped>
-.forward-message-modal__quote {
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  background: var(--color-bg-subtle);
-  border-left: 3px solid var(--color-border);
-  border-radius: var(--radius-sm);
-}
-.forward-message-modal__quote strong {
-  display: block;
-  margin-bottom: 4px;
-  font-size: var(--font-size-sm);
-}
-.forward-message-modal__quote p {
-  margin: 0;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  white-space: pre-wrap;
-}
-.forward-message-modal__hint {
-  margin: 0 0 10px;
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
 .forward-message-modal__empty {
   padding: 8px 0;
   color: var(--color-text-secondary);

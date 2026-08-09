@@ -1,4 +1,4 @@
-import { request } from '@/shared/api/http'
+import { request, uploadForm } from '@/shared/api/http'
 import type { PublicUser, UserPrivacySettings, UserSearchResult } from '../model/types'
 
 export const userApi = {
@@ -21,4 +21,10 @@ export const userApi = {
       method: 'PATCH',
       body: JSON.stringify(settings),
     }),
+
+  uploadAvatar: (file: File) => {
+    const form = new FormData()
+    form.append('avatar', file)
+    return uploadForm<{ avatarUrl: string }>('/users/me/avatar', form)
+  },
 }

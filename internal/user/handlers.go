@@ -78,7 +78,8 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	filename, err := h.service.UploadAvatar(file)
+	userID := httputil.UserFromRequest(r).ID
+	avatarURL, err := h.service.UploadAvatar(r.Context(), userID, file)
 	if err != nil {
 		switch {
 		case errors.Is(err, ErrInvalidImage), errors.Is(err, ErrUploadAvatar):
@@ -90,11 +91,5 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
-	if err := h.service.UpdateAvatar(ctx, httputil.UserFromRequest(r).ID, filename); err != nil {
-		httputil.InternalError(w, r, err)
-		return
-	}
-
-	httputil.Success(w)
+	httputil.SuccessData(w, map[string]string{"avatarUrl": avatarURL})
 }

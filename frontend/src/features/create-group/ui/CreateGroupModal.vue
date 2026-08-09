@@ -52,7 +52,7 @@
             :disabled="pending || isSelected(user.id)"
             @click="addMember(user)"
           >
-            <BaseAvatar :name="user.username" :color="index" size="sm" />
+            <BaseAvatar :name="user.username" :src="user.avatarUrl" :color="index" size="sm" />
             <span>@{{ user.username }}</span>
           </button>
           <p

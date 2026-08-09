@@ -20,15 +20,42 @@ SELECT c.id,
        c.title,
        c.slug,
        c.created_at,
-       peer.id         AS peer_id,
-       peer.username   AS peer_username,
-       peer.avatar_url AS peer_avatar_url
+       peer.id            AS peer_id,
+       peer.username      AS peer_username,
+       peer.avatar_url    AS peer_avatar_url,
+       lm.id              AS last_message_id,
+       lm.content         AS last_message_content,
+       lm.created_at      AS last_message_created_at,
+       lm_sender.username AS last_message_sender_username,
+       COALESCE(att.kind, '') AS last_message_attachment_kind
 FROM conversations c
          JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $1
          LEFT JOIN conversation_members pcm
                    ON pcm.conversation_id = c.id AND pcm.user_id <> $1 AND c.type = 'dm'
          LEFT JOIN users peer ON peer.id = pcm.user_id
-ORDER BY c.created_at DESC;
+         LEFT JOIN messages lm ON lm.id = (
+    SELECT m.id
+    FROM messages m
+    WHERE m.conversation_id = c.id
+      AND m.deleted_at IS NULL
+      AND NOT EXISTS (
+        SELECT 1
+        FROM hidden_messages hm
+        WHERE hm.message_id = m.id
+          AND hm.user_id = $1
+    )
+    ORDER BY m.created_at DESC, m.id DESC
+    LIMIT 1
+    )
+         LEFT JOIN users lm_sender ON lm_sender.id = lm.sender_id
+         LEFT JOIN LATERAL (
+    SELECT a.kind
+    FROM message_attachments a
+    WHERE a.message_id = lm.id
+    ORDER BY a.created_at ASC, a.id ASC
+    LIMIT 1
+    ) att ON TRUE
+ORDER BY COALESCE(lm.created_at, c.created_at) DESC, c.id DESC;
 
 -- name: AddConversationMember :exec
 INSERT INTO conversation_members (id, conversation_id, user_id, joined_at)

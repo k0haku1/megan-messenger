@@ -1,3 +1,19 @@
+export interface MessageAttachment {
+  id: string
+  conversationId: string
+  uploaderId?: string
+  mime: string
+  kind: 'image' | 'video' | 'file'
+  sizeBytes: number
+  width?: number
+  height?: number
+  durationMs?: number
+  originalName: string
+  url?: string
+  thumbUrl?: string
+  createdAt: string
+}
+
 export interface Message {
   id: string
   conversationId: string
@@ -7,6 +23,7 @@ export interface Message {
   deletedAt?: string
   reactions: MessageReaction[]
   reactionUpdatedBy?: string
+  attachments?: MessageAttachment[]
   createdAt: string
   sender: { id: string; username: string; avatarUrl?: string }
 }

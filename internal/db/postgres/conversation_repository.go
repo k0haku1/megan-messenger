@@ -46,6 +46,16 @@ func mapListedConversation(row db.GetUserConversationsRow) model.Conversation {
 		}
 	}
 
+	if row.LastMessageID.Valid {
+		conv.LastMessage = &model.ConversationPreview{
+			ID:             uuid.UUID(row.LastMessageID.Bytes),
+			Content:        textOrEmpty(row.LastMessageContent),
+			SenderUsername: textOrEmpty(row.LastMessageSenderUsername),
+			AttachmentKind: row.LastMessageAttachmentKind,
+			CreatedAt:      row.LastMessageCreatedAt.Time,
+		}
+	}
+
 	return conv
 }
 

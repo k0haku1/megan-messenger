@@ -119,13 +119,24 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	message, err := h.service.SendMessage(r.Context(), user.ID, conversationID, params.Content, params.ReplyToID)
+	message, err := h.service.SendMessage(
+		r.Context(),
+		user.ID,
+		conversationID,
+		params.Content,
+		params.ReplyToID,
+		params.AttachmentIDs,
+	)
 	if err != nil {
 		switch {
 		case errors.Is(err, repository.ErrConversationNotFound):
 			httputil.NotFound(w, "")
 		case errors.Is(err, model.ErrInvalidMessageContent):
 			httputil.ValidationError(w, httputil.FieldErrors{"content": "Message is too long"})
+		case errors.Is(err, ErrEmptyMessage):
+			httputil.ValidationError(w, httputil.FieldErrors{"content": "Message is empty"})
+		case errors.Is(err, ErrInvalidAttachments):
+			httputil.ValidationError(w, httputil.FieldErrors{"attachmentIds": "Invalid attachments"})
 		default:
 			httputil.InternalError(w, r, err)
 		}
@@ -137,6 +148,81 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.Created(w, SendMessageResponse{Message: message})
+}
+
+func (h *Handler) UploadAttachment(w http.ResponseWriter, r *http.Request) {
+	user := httputil.UserFromRequest(r)
+	conversationID, err := httputil.ParseConversationID(r)
+	if err != nil {
+		httputil.BadRequest(w, "invalid conversation id")
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, 50<<20)
+	if err := r.ParseMultipartForm(50 << 20); err != nil {
+		httputil.ValidationError(w, httputil.FieldErrors{"file": "file too big"})
+		return
+	}
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		httputil.ValidationError(w, httputil.FieldErrors{"file": "failed to read file"})
+		return
+	}
+	defer file.Close()
+
+	att, err := h.service.UploadAttachment(r.Context(), user.ID, conversationID, header.Filename, file, header.Size)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrConversationNotFound):
+			httputil.NotFound(w, "")
+		case errors.Is(err, ErrAttachmentTooLarge):
+			httputil.ValidationError(w, httputil.FieldErrors{"file": "file too large"})
+		default:
+			httputil.InternalError(w, r, err)
+		}
+		return
+	}
+	httputil.Created(w, UploadAttachmentResponse{Attachment: att})
+}
+
+func (h *Handler) ListMedia(w http.ResponseWriter, r *http.Request) {
+	user := httputil.UserFromRequest(r)
+	conversationID, err := httputil.ParseConversationID(r)
+	if err != nil {
+		httputil.BadRequest(w, "invalid conversation id")
+		return
+	}
+
+	limit := normalizeLimit(r.URL.Query().Get("limit"), 60, 24)
+	kind := r.URL.Query().Get("kind")
+	var cursor *pagination.Cursor
+	if cursorStr := r.URL.Query().Get("cursor"); cursorStr != "" {
+		c, err := h.service.ParseCursor(cursorStr)
+		if err != nil {
+			httputil.BadRequest(w, "invalid cursor")
+			return
+		}
+		cursor = &c
+	}
+
+	items, err := h.service.ListMedia(r.Context(), user.ID, conversationID, kind, limit, cursor)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrConversationNotFound):
+			httputil.NotFound(w, "")
+		case errors.Is(err, ErrInvalidMediaKind):
+			httputil.BadRequest(w, "invalid kind")
+		default:
+			httputil.InternalError(w, r, err)
+		}
+		return
+	}
+
+	var nextCursor string
+	if len(items) == limit {
+		nextCursor = h.service.GenerateAttachmentCursor(items[len(items)-1])
+	}
+	httputil.SuccessData(w, MediaListResponse{Items: items, NextCursor: nextCursor})
 }
 
 func parseMessageID(r *http.Request) (uuid.UUID, error) { return uuid.Parse(r.PathValue("messageID")) }
@@ -195,6 +281,39 @@ func (h *Handler) ForwardMessage(w http.ResponseWriter, r *http.Request) {
 	httputil.Created(w, MessageResponse{Message: message})
 }
 
+func (h *Handler) ForwardMessages(w http.ResponseWriter, r *http.Request) {
+	sourceConversationID, err := httputil.ParseConversationID(r)
+	if err != nil {
+		httputil.BadRequest(w, "invalid conversation id")
+		return
+	}
+	var params ForwardMessagesRequest
+	if err := httputil.Read(r, &params); err != nil {
+		httputil.InvalidRequestBody(w)
+		return
+	}
+	if err := h.validate.Validate(params); err != nil {
+		httputil.ValidationError(w, err)
+		return
+	}
+	messages, err := h.service.ForwardMessages(
+		r.Context(),
+		httputil.UserFromRequest(r).ID,
+		sourceConversationID,
+		params.ConversationID,
+		params.MessageIDs,
+	)
+	if respondMessageActionError(w, r, err) {
+		return
+	}
+	for _, message := range messages {
+		if err := h.wsService.PublishMessage(r.Context(), message.ConversationID, message); err != nil {
+			slog.Warn("failed to publish forwarded message", "err", err)
+		}
+	}
+	httputil.Created(w, ForwardMessagesResponse{Messages: messages})
+}
+
 func (h *Handler) AddReaction(w http.ResponseWriter, r *http.Request) { h.changeReaction(w, r, true) }
 func (h *Handler) RemoveReaction(w http.ResponseWriter, r *http.Request) {
 	h.changeReaction(w, r, false)
@@ -234,6 +353,10 @@ func respondMessageActionError(w http.ResponseWriter, r *http.Request, err error
 		httputil.NotFound(w, "")
 	case errors.Is(err, ErrNotMessageSender):
 		httputil.Forbidden(w, "Only the sender can delete this message")
+	case errors.Is(err, ErrEmptyMessageIDs):
+		httputil.BadRequest(w, "message ids required")
+	case errors.Is(err, ErrTooManyMessages):
+		httputil.BadRequest(w, "too many messages")
 	case errors.Is(err, model.ErrInvalidMessageContent):
 		httputil.ValidationError(w, httputil.FieldErrors{"emoji": "Invalid emoji"})
 	default:

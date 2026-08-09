@@ -1,7 +1,12 @@
 <template>
   <div class="profile-view">
     <section class="modal-sheet__identity">
-      <BaseAvatar :name="displayName" size="lg" :color="avatarColor" />
+      <BaseAvatar
+        :name="displayName"
+        :src="session.user?.avatarUrl"
+        size="lg"
+        :color="avatarColor"
+      />
       <div class="modal-sheet__identity-meta">
         <strong>{{ displayName }}</strong>
         <span>{{ session.user?.phone }}</span>
@@ -10,10 +15,10 @@
 
     <section class="profile-view__section" aria-label="Настройки">
       <ProfileNavRow
-        icon="username"
-        label="Username"
-        :value="usernameValue"
-        @select="profileUi.openView('username')"
+        icon="edit"
+        label="Редактировать профиль"
+        description="Фото и username"
+        @select="profileUi.openView('edit')"
       />
       <ProfileNavRow
         icon="privacy"
@@ -59,7 +64,6 @@ const displayName = computed(() =>
 const avatarColor = computed(() => getUserAvatarColor(displayName.value))
 const passwordStatus = computed(() => (session.user?.hasPassword ? 'Вкл' : 'Выкл'))
 const themeLabel = computed(() => themeStore.label)
-const usernameValue = computed(() => (session.user?.username ? `@${session.user.username}` : 'Не задан'))
 const privacyStatus = computed(() => {
   const find = privacyFindLabel(session.user?.usernameSearchable)
   const dm = privacyDmLabel(session.user?.dmPolicy)

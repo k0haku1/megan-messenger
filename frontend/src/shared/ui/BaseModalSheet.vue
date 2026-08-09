@@ -9,10 +9,16 @@
       @click.self="emit('close')"
     >
       <div class="modal-sheet__panel" :class="panelClass">
-        <header class="modal-sheet__header">
+        <header class="modal-sheet__header" :class="{ 'is-titleless': hideTitle }">
           <div class="modal-sheet__header-start">
             <slot name="header-start" />
-            <h2 :id="titleId" class="modal-sheet__title">{{ title }}</h2>
+            <h2
+              :id="titleId"
+              class="modal-sheet__title"
+              :class="{ 'is-visually-hidden': hideTitle }"
+            >
+              {{ title }}
+            </h2>
           </div>
           <BaseIconButton label="Закрыть" variant="ghost" @click="emit('close')">
             <AppIcon name="close" />
@@ -37,10 +43,12 @@ const props = withDefaults(
     titleId: string
     scrollable?: boolean
     compact?: boolean
+    hideTitle?: boolean
   }>(),
   {
     scrollable: false,
     compact: false,
+    hideTitle: false,
   },
 )
 

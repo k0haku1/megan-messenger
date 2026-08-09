@@ -18,6 +18,7 @@
     </template>
 
     <ProfileMainView v-if="profileUi.view === 'main'" />
+    <ProfileEditView v-else-if="profileUi.view === 'edit'" />
     <ProfilePasswordView v-else-if="profileUi.view === 'password'" />
     <ProfileThemeView v-else-if="profileUi.view === 'theme'" />
     <ProfileUsernameView v-else-if="profileUi.view === 'username'" />
@@ -33,6 +34,7 @@ import BaseIconButton from '@/shared/ui/BaseIconButton.vue'
 import BaseModalSheet from '@/shared/ui/BaseModalSheet.vue'
 import { useProfileUiStore } from '../model/profile-ui.store'
 import ProfileMainView from './ProfileMainView.vue'
+import ProfileEditView from './ProfileEditView.vue'
 import ProfilePasswordView from './ProfilePasswordView.vue'
 import ProfileThemeView from './ProfileThemeView.vue'
 import ProfileUsernameView from './ProfileUsernameView.vue'
