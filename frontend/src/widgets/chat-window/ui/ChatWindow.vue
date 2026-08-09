@@ -1,13 +1,30 @@
 <template>
-  <section class="chat-window" aria-label="Переписка">
+  <section
+    class="chat-window"
+    :class="{ 'is-embedded': embedded, 'is-pane-active': active }"
+    aria-label="Переписка"
+  >
     <template v-if="header">
-      <header class="chat-header">
+      <header
+        class="chat-header"
+        :class="{ 'is-draggable': rearrangeable }"
+        :data-tile-drag-handle="rearrangeable ? '' : undefined"
+        @pointerdown="onHeaderPointerDown"
+      >
+        <span v-if="rearrangeable" class="chat-header__drag-hint" aria-hidden="true" />
         <BaseAvatar :name="header.avatarName" :color="header.type === 'group' ? 2 : 0" />
         <div class="chat-header__meta">
           <strong>{{ header.title }}</strong>
           <span>{{ header.type === 'group' ? 'групповой чат' : 'был(а) недавно' }}</span>
         </div>
-        <div class="chat-header__actions">
+        <div class="chat-header__actions" data-no-pane-drag>
+          <BaseIconButton
+            v-if="rearrangeable"
+            label="Закрыть чат"
+            @click.stop="emit('close')"
+          >
+            <AppIcon name="close" />
+          </BaseIconButton>
           <BaseIconButton label="Поиск по сообщениям">
             <AppIcon name="search" />
           </BaseIconButton>
@@ -26,7 +43,7 @@
 
       <GroupInfoSheet
         :open="groupInfoOpen"
-        :conversation-id="selectedConversationId!"
+        :conversation-id="activeConversationId!"
         :title="header.title"
         :slug="conversation?.slug"
         @close="groupInfoOpen = false"
@@ -43,7 +60,7 @@
       <ForwardMessageModal
         :open="forwardOpen"
         :message="forwardMessage"
-        :current-conversation-id="selectedConversationId"
+        :current-conversation-id="activeConversationId"
         @close="closeForward()"
         @forwarded="onForwarded"
       />
@@ -57,82 +74,101 @@
         @select="handleMenuAction"
       />
 
-      <div class="message-area">
-        <div v-if="visibleMessages.length === 0" class="chat-empty">
-          <AppIcon class="chat-empty__icon" name="mail" />
-          <strong>{{ header.isPending ? 'Напишите первое сообщение' : 'Начните общение' }}</strong>
-          <span>{{
-            header.isPending
-              ? 'Диалог появится в списке после отправки'
-              : 'Сообщения этого чата появятся здесь'
-          }}</span>
-        </div>
-        <div v-else class="message-stack">
-          <div
-            v-for="(message, index) in visibleMessages"
-            :key="message.id"
-            class="message-item"
-            :class="{ 'is-own': isOwnMessage(message, currentUserId), 'is-deleting': deletingMessageIds.has(message.id) }"
-          >
-            <span v-if="shouldShowSenderName(message, index, visibleMessages, currentUserId)" class="message-item__sender">
-              {{ message.sender.username }}
-            </span>
-            <article
-              class="message-bubble"
-              :class="{ 'is-context-pressed': contextPressedMessageId === message.id }"
-              @contextmenu.prevent="openMenu($event, message)"
-              @mouseenter="scheduleReactionPicker(message.id)"
-              @mouseleave="hideReactionPicker()"
+      <div class="message-area-wrap">
+        <div
+          ref="messageAreaRef"
+          class="message-area"
+          @scroll.passive="onContainerScroll"
+        >
+          <div v-if="visibleMessages.length === 0" class="chat-empty">
+            <AppIcon class="chat-empty__icon" name="mail" />
+            <strong>{{ header.isPending ? 'Напишите первое сообщение' : 'Начните общение' }}</strong>
+            <span>{{
+              header.isPending
+                ? 'Диалог появится в списке после отправки'
+                : 'Сообщения этого чата появятся здесь'
+            }}</span>
+          </div>
+          <div v-else class="message-stack">
+            <div
+              v-for="(message, index) in visibleMessages"
+              :key="message.id"
+              class="message-item"
+              :class="{ 'is-own': isOwnMessage(message, currentUserId), 'is-deleting': deletingMessageIds.has(message.id) }"
             >
-              <template v-if="repliedMessage(message)">
-                <div class="message-bubble__reply-preview">
-                  <strong>{{ repliedMessage(message)?.sender.username }}</strong>
-                  <span>{{ replyPreview(repliedMessage(message)!) }}</span>
-                </div>
-              </template>
-              <span v-else-if="message.replyToId" class="message-bubble__reference">↩ Исходное сообщение недоступно</span>
-              <span v-if="message.forwardedFromId" class="message-bubble__reference">↪ Пересланное сообщение</span>
-              <p>{{ message.content }}</p>
-              <div v-if="message.reactions?.length" class="message-bubble__reactions">
-                <button
-                  v-for="reaction in message.reactions"
-                  :key="reaction.emoji"
-                  type="button"
-                  :class="{ 'is-active': reaction.reactedByMe, 'is-appearing': appearingReactionKey === reactionKey(message.id, reaction.emoji) }"
-                  @click="toggleReaction(message, reaction.emoji, reaction.reactedByMe)"
-                >
-                  {{ reaction.emoji }} <small>{{ reaction.count }}</small>
-                </button>
-              </div>
-              <div
-                v-if="reactionPickerMessageId === message.id && !message.deletedAt"
-                class="message-reaction-picker"
-                @mouseenter="cancelReactionPickerHide()"
+              <span v-if="shouldShowSenderName(message, index, visibleMessages, currentUserId)" class="message-item__sender">
+                {{ message.sender.username }}
+              </span>
+              <article
+                class="message-bubble"
+                :class="{ 'is-context-pressed': contextPressedMessageId === message.id }"
+                @contextmenu.prevent="openMenu($event, message)"
+                @mouseenter="scheduleReactionPicker(message.id)"
                 @mouseleave="hideReactionPicker()"
               >
-                <button
-                  v-for="emoji in reactionEmojis"
-                  :key="emoji"
-                  type="button"
-                  :class="{ 'is-active': hasReaction(message, emoji) }"
-                  :aria-label="`Поставить реакцию ${emoji}`"
-                  @click="toggleReaction(message, emoji, hasReaction(message, emoji))"
-                >{{ emoji }}</button>
-                <button
-                  type="button"
-                  aria-label="Выбрать другую реакцию"
-                  @click="toggleEmojiPicker(message.id)"
-                >＋</button>
-                <emoji-picker
-                  v-if="emojiPickerMessageId === message.id"
-                  class="message-reaction-picker__emoji-picker"
-                  @emoji-click="onEmojiClick(message, $event)"
-                />
-              </div>
-              <time>{{ formatMessageTime(message.createdAt) }}</time>
-            </article>
+                <template v-if="repliedMessage(message)">
+                  <div class="message-bubble__reply-preview">
+                    <strong>{{ repliedMessage(message)?.sender.username }}</strong>
+                    <span>{{ replyPreview(repliedMessage(message)!) }}</span>
+                  </div>
+                </template>
+                <span v-else-if="message.replyToId" class="message-bubble__reference">↩ Исходное сообщение недоступно</span>
+                <span v-if="message.forwardedFromId" class="message-bubble__reference">↪ Пересланное сообщение</span>
+                <p>{{ message.content }}</p>
+                <div v-if="message.reactions?.length" class="message-bubble__reactions">
+                  <button
+                    v-for="reaction in message.reactions"
+                    :key="reaction.emoji"
+                    type="button"
+                    :class="{ 'is-active': reaction.reactedByMe, 'is-appearing': appearingReactionKey === reactionKey(message.id, reaction.emoji) }"
+                    @click="toggleReaction(message, reaction.emoji, reaction.reactedByMe)"
+                  >
+                    {{ reaction.emoji }} <small>{{ reaction.count }}</small>
+                  </button>
+                </div>
+                <div
+                  v-if="reactionPickerMessageId === message.id && !message.deletedAt"
+                  class="message-reaction-picker"
+                  @mouseenter="cancelReactionPickerHide()"
+                  @mouseleave="hideReactionPicker()"
+                >
+                  <button
+                    v-for="emoji in reactionEmojis"
+                    :key="emoji"
+                    type="button"
+                    :class="{ 'is-active': hasReaction(message, emoji) }"
+                    :aria-label="`Поставить реакцию ${emoji}`"
+                    @click="toggleReaction(message, emoji, hasReaction(message, emoji))"
+                  >{{ emoji }}</button>
+                  <button
+                    type="button"
+                    aria-label="Выбрать другую реакцию"
+                    @click="toggleEmojiPicker(message.id)"
+                  >＋</button>
+                  <emoji-picker
+                    v-if="emojiPickerMessageId === message.id"
+                    class="message-reaction-picker__emoji-picker"
+                    @emoji-click="onEmojiClick(message, $event)"
+                  />
+                </div>
+                <time>{{ formatMessageTime(message.createdAt) }}</time>
+              </article>
+            </div>
           </div>
         </div>
+
+        <button
+          v-if="showJumpToLatest"
+          type="button"
+          class="jump-to-latest"
+          :aria-label="unseenCount > 0 ? `К последнему сообщению, новых: ${unseenCount}` : 'К последнему сообщению'"
+          @click="scrollToLatest('smooth')"
+        >
+          <AppIcon name="chevron-right" class="jump-to-latest__icon" />
+          <span v-if="unseenCount > 0" class="jump-to-latest__badge">
+            {{ unseenCount > 99 ? '99+' : unseenCount }}
+          </span>
+        </button>
       </div>
 
       <div class="composer-wrap">
@@ -151,11 +187,13 @@
             <AppIcon name="attach" />
           </BaseIconButton>
           <textarea
+            ref="composerRef"
             v-model="draft"
             rows="1"
             :placeholder="replyTo ? 'Ответ...' : 'Сообщение'"
             aria-label="Сообщение"
             :disabled="isSending"
+            @focus="onComposerFocus"
             @keydown.enter.exact.prevent="send()"
           />
           <BaseIconButton label="Эмодзи">
@@ -171,7 +209,7 @@
       </div>
     </template>
 
-    <div v-else class="chat-placeholder">
+    <div v-else-if="!embedded" class="chat-placeholder">
       <div class="chat-placeholder__mark">M</div>
       <strong>Выберите чат</strong>
       <span>Откройте диалог слева, чтобы начать общение</span>
@@ -181,7 +219,7 @@
 
 <script setup lang="ts">
 import 'emoji-picker-element'
-import { computed, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import CaptureDecisionModal from '@/features/capture-decision/ui/CaptureDecisionModal.vue'
 import ForwardMessageModal from '@/features/forward-message/ui/ForwardMessageModal.vue'
 import GroupInfoSheet from '@/features/group-info/ui/GroupInfoSheet.vue'
@@ -208,14 +246,45 @@ import { useConversationMessages } from '@/entities/message/lib/use-conversation
 import { useMessageComposer } from '@/features/compose-message/model/use-message-composer'
 import { useMessagesSync } from '@/features/message-sync/model/use-messages-sync'
 import { useConversationWs } from '@/features/conversation-ws/model/use-conversation-ws'
+import { useScrollToLatest } from '@/features/scroll-to-latest/model/use-scroll-to-latest'
 import { useSessionStore } from '@/entities/session/model/session.store'
 import BaseAvatar from '@/shared/ui/BaseAvatar.vue'
 import BaseIconButton from '@/shared/ui/BaseIconButton.vue'
 import AppIcon from '@/shared/ui/AppIcon.vue'
 
+const props = withDefaults(
+  defineProps<{
+    conversationId?: string | null
+    active?: boolean
+    embedded?: boolean
+    rearrangeable?: boolean
+  }>(),
+  {
+    conversationId: undefined,
+    active: true,
+    embedded: false,
+    rearrangeable: false,
+  },
+)
+
+const emit = defineEmits<{
+  close: []
+  headerDrag: [event: PointerEvent]
+}>()
+
+function onHeaderPointerDown(event: PointerEvent): void {
+  if (!props.rearrangeable) return
+  emit('headerDrag', event)
+}
+
 const navigation = useConversationSelectionStore()
 const session = useSessionStore()
 const { selectedConversationId, pendingPeer } = storeToRefs(navigation)
+const activeConversationId = computed(() => props.conversationId ?? selectedConversationId.value)
+const composerPendingPeer = computed(() =>
+  props.conversationId ? null : pendingPeer.value,
+)
+const composerRef = ref<HTMLTextAreaElement | null>(null)
 const groupInfoOpen = ref(false)
 const captureOpen = ref(false)
 const captureMessage = ref<Message | null>(null)
@@ -235,18 +304,33 @@ const appearingReactionKey = ref<string | null>(null)
 let reactionPickerTimer: ReturnType<typeof window.setTimeout> | null = null
 const reactionEmojis = ['👍', '❤️', '😂']
 
-const conversation = useConversation(selectedConversationId)
-const visibleMessages = useConversationMessages(selectedConversationId)
+const conversation = useConversation(activeConversationId)
+const visibleMessages = useConversationMessages(activeConversationId)
 const currentUserId = computed(() => session.user?.id)
 const messagesById = computed(() => new Map(visibleMessages.value.map((message) => [message.id, message])))
 
+const messageAreaRef = ref<HTMLElement | null>(null)
+const latestMessageId = computed(() => visibleMessages.value.at(-1)?.id ?? null)
+const latestIsOwn = computed(() => {
+  const latest = visibleMessages.value.at(-1)
+  if (!latest) return false
+  return isOwnMessage(latest, currentUserId.value)
+})
+
+const { showJumpToLatest, unseenCount, onContainerScroll, scrollToLatest } = useScrollToLatest({
+  container: messageAreaRef,
+  conversationKey: activeConversationId,
+  latestMessageId,
+  latestIsOwn,
+})
+
 const isGroupChat = computed(() => conversation.value?.type === 'group')
-const linkedProjectsQuery = useConversationProjects(selectedConversationId, isGroupChat)
+const linkedProjectsQuery = useConversationProjects(activeConversationId, isGroupChat)
 const linkedProjects = computed(() => linkedProjectsQuery.data.value ?? [])
 const canCaptureDecision = computed(() => isGroupChat.value && linkedProjects.value.length > 0)
 
-useMessagesSync(selectedConversationId)
-useConversationWs(selectedConversationId)
+useMessagesSync(activeConversationId)
+useConversationWs(activeConversationId)
 
 const header = computed(() => {
   if (conversation.value) {
@@ -258,7 +342,7 @@ const header = computed(() => {
     }
   }
 
-  if (pendingPeer.value) {
+  if (!props.conversationId && pendingPeer.value) {
     return {
       type: 'dm' as const,
       title: pendingPeer.value.username,
@@ -299,11 +383,24 @@ const menuReactionDetails = computed<MessageContextMenuReactionDetail[]>(() =>
 )
 
 const { draft, isSending, sendError, canSend, send, clearReply } = useMessageComposer({
-  selectedConversationId,
-  pendingPeer,
+  selectedConversationId: activeConversationId,
+  pendingPeer: composerPendingPeer,
   replyTo,
   onConversationOpened: (conversationId) => navigation.select(conversationId),
 })
+
+function onComposerFocus(): void {
+  if (!activeConversationId.value) return
+  navigation.focusConversation(activeConversationId.value)
+}
+
+watch(
+  () => props.active,
+  (isActive) => {
+    if (!isActive) return
+    void nextTick(() => composerRef.value?.focus({ preventScroll: true }))
+  },
+)
 
 function showNotice(text: string) {
   actionNotice.value = text
@@ -412,7 +509,7 @@ function onEmojiClick(message: Message, event: Event) {
 }
 
 async function deleteForMe(message: Message) {
-  const conversationId = selectedConversationId.value
+  const conversationId = activeConversationId.value
   if (!conversationId) return
   try {
     deletingMessageIds.value = new Set([...deletingMessageIds.value, message.id])
@@ -425,7 +522,7 @@ async function deleteForMe(message: Message) {
 }
 
 async function deleteForEveryone(message: Message) {
-  const conversationId = selectedConversationId.value
+  const conversationId = activeConversationId.value
   if (!conversationId) return
   try {
     deletingMessageIds.value = new Set([...deletingMessageIds.value, message.id])
@@ -438,7 +535,7 @@ async function deleteForEveryone(message: Message) {
 }
 
 async function toggleReaction(message: Message, emoji: string, active: boolean) {
-  const conversationId = selectedConversationId.value
+  const conversationId = activeConversationId.value
   if (!conversationId || message.deletedAt) return
   try {
     const result = await messageApi.react(conversationId, message.id, emoji, !active)

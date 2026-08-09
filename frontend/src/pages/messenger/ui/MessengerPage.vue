@@ -1,7 +1,7 @@
 <template>
   <AppShell>
     <ConversationList />
-    <ChatWindow />
+    <ChatWorkspace />
   </AppShell>
 </template>
 
@@ -10,7 +10,7 @@ import { onMounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useConversations } from '@/entities/conversation/api/conversation.queries'
 import ConversationList from '@/widgets/conversation-list/ui/ConversationList.vue'
-import ChatWindow from '@/widgets/chat-window/ui/ChatWindow.vue'
+import ChatWorkspace from '@/widgets/chat-workspace/ui/ChatWorkspace.vue'
 import { useUserProfileStore } from '@/features/user-profile/model/user-profile.store'
 import AppShell from '@/shared/ui/AppShell.vue'
 

@@ -29,9 +29,7 @@ export async function leaveGroupChat(conversationId: string) {
   await conversationApi.leave(conversationId)
 
   const navigation = useConversationSelectionStore()
-  if (navigation.selectedConversationId === conversationId) {
-    navigation.select(null)
-  }
+  navigation.closeConversation(conversationId)
 
   await queryClient.invalidateQueries({ queryKey: queryKeys.conversations })
 }

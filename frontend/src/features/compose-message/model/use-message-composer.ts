@@ -64,7 +64,7 @@ export function useMessageComposer(options: {
       if (activeTarget.kind === 'pending-peer') {
         const { conversationId } = await sendDirectMessage({
           userId: activeTarget.peer.id,
-          content,
+          content: rawContent,
         })
         draft.value = ''
         options.replyTo.value = null

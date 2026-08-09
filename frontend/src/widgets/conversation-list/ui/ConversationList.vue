@@ -24,9 +24,12 @@
         v-for="(conversation, index) in filteredConversations"
         :key="conversation.id"
         class="conversation-item"
-        :class="{ 'is-active': selectedConversationId === conversation.id }"
+        :class="{
+          'is-active': selectedConversationId === conversation.id,
+          'is-dragging': drag?.conversationId === conversation.id && drag.active,
+        }"
         type="button"
-        @click="navigation.select(conversation.id)"
+        @pointerdown="onItemPointerDown($event, conversation)"
       >
         <BaseAvatar :name="getConversationAvatarName(conversation)" :color="index" size="lg" />
         <span class="conversation-item__body">
@@ -58,11 +61,24 @@
         }}</span>
       </div>
     </div>
+
+    <Teleport to="body">
+      <div
+        v-if="drag?.active"
+        class="conversation-drag-ghost"
+        :style="{
+          transform: `translate3d(${drag.clientX - 28}px, ${drag.clientY - 28}px, 0)`,
+        }"
+      >
+        <BaseAvatar :name="drag.title" size="lg" />
+        <span>{{ drag.title }}</span>
+      </div>
+    </Teleport>
   </aside>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useConversations } from '@/entities/conversation/api/conversation.queries'
 import { useConversationSelectionStore } from '@/features/conversation-selection/model/conversation-selection.store'
@@ -70,7 +86,10 @@ import {
   getConversationAvatarName,
   getConversationTitle,
 } from '@/entities/conversation/lib/display'
+import type { Conversation } from '@/entities/conversation/model/types'
 import { normalizeUsernameQuery } from '@/entities/user/lib/username'
+import { useChatWorkspaceStore } from '@/features/chat-workspace/model/chat-workspace.store'
+import { useConversationListDrag } from '@/features/chat-workspace/model/use-conversation-list-drag'
 import GlobalSearchResults from '@/features/global-search/ui/GlobalSearchResults.vue'
 import NewChatMenu from '@/features/new-chat/ui/NewChatMenu.vue'
 import { useGlobalSearchStore } from '@/features/global-search/model/global-search.store'
@@ -82,6 +101,7 @@ import type { FolderId } from '@/shared/config/folders'
 
 const { conversations, isError } = useConversations()
 const navigation = useConversationSelectionStore()
+const workspace = useChatWorkspaceStore()
 const searchStore = useGlobalSearchStore()
 const { selectedConversationId, activeFolder } = storeToRefs(navigation)
 const searchInputRef = ref<{ focus: () => void } | null>(null)
@@ -107,6 +127,60 @@ const filteredConversations = computed(() =>
     return matchesFolder && matchesSearch
   }),
 )
+
+const { drag, startDrag } = useConversationListDrag({
+  onClick: (conversationId) => navigation.select(conversationId),
+  onDrop: ({ conversationId, clientX, clientY, originRect }) => {
+    workspace.setListDragActive(false)
+    const dropped = workspace.dropConversationAt(
+      conversationId,
+      clientX,
+      clientY,
+      originRect,
+    )
+    if (dropped) {
+      navigation.focusConversation(conversationId)
+      return
+    }
+    navigation.select(conversationId)
+  },
+  onCancel: () => workspace.setListDragActive(false),
+})
+
+watch(
+  () => drag.value?.active === true,
+  (active) => {
+    workspace.setListDragActive(Boolean(active))
+  },
+)
+
+watch(
+  () => {
+    if (!drag.value?.active) return null
+    return {
+      x: drag.value.clientX,
+      y: drag.value.clientY,
+    }
+  },
+  (point) => {
+    if (!point) {
+      workspace.clearDropPreview()
+      return
+    }
+    workspace.updateDropPreview(point.x, point.y)
+  },
+)
+
+function onItemPointerDown(event: PointerEvent, conversation: Conversation): void {
+  const originEl = event.currentTarget
+  if (!(originEl instanceof HTMLElement)) return
+  startDrag({
+    event,
+    conversationId: conversation.id,
+    title: getConversationTitle(conversation),
+    originEl,
+  })
+}
 
 function focusSearch() {
   searchInputRef.value?.focus()
