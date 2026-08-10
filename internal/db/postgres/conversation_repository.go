@@ -6,6 +6,7 @@ import (
 	db "megan-messenger/internal/db/postgres/sqlc"
 	"megan-messenger/internal/model"
 	"megan-messenger/internal/repository"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -31,11 +32,13 @@ func mapConversationRow(row db.Conversation) model.Conversation {
 
 func mapListedConversation(row db.GetUserConversationsRow) model.Conversation {
 	conv := model.Conversation{
-		ID:        row.ID,
-		Type:      model.ConversationType(row.Type),
-		Title:     textOrEmpty(row.Title),
-		Slug:      textOrEmpty(row.Slug),
-		CreatedAt: row.CreatedAt.Time,
+		ID:          row.ID,
+		Type:        model.ConversationType(row.Type),
+		Title:       textOrEmpty(row.Title),
+		Slug:        textOrEmpty(row.Slug),
+		UnreadCount: int(row.UnreadCount),
+		OthersReadAt: timePtr(row.OthersReadAt),
+		CreatedAt:   row.CreatedAt.Time,
 	}
 
 	if row.PeerID.Valid {
@@ -47,9 +50,14 @@ func mapListedConversation(row db.GetUserConversationsRow) model.Conversation {
 	}
 
 	if row.LastMessageID.Valid {
+		senderID := uuid.UUID{}
+		if row.LastMessageSenderID.Valid {
+			senderID = uuid.UUID(row.LastMessageSenderID.Bytes)
+		}
 		conv.LastMessage = &model.ConversationPreview{
 			ID:             uuid.UUID(row.LastMessageID.Bytes),
 			Content:        textOrEmpty(row.LastMessageContent),
+			SenderID:       senderID,
 			SenderUsername: textOrEmpty(row.LastMessageSenderUsername),
 			AttachmentKind: row.LastMessageAttachmentKind,
 			CreatedAt:      row.LastMessageCreatedAt.Time,
@@ -148,4 +156,72 @@ func (r *ConversationRepository) CreateDMPair(ctx context.Context, userLow, user
 		UserHigh:       userHigh,
 		ConversationID: conversationID,
 	})
+}
+
+func (r *ConversationRepository) AdvanceLastReadAt(
+	ctx context.Context,
+	conversationID, userID uuid.UUID,
+	readAt time.Time,
+) (time.Time, bool, error) {
+	updated, err := r.queries.AdvanceMemberLastReadAt(ctx, db.AdvanceMemberLastReadAtParams{
+		LastReadAt:     timestampFromTime(readAt),
+		ConversationID: conversationID,
+		UserID:         userID,
+	})
+	if err == nil {
+		return updated.Time, true, nil
+	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return time.Time{}, false, err
+	}
+
+	current, err := r.queries.GetMemberLastReadAt(ctx, db.GetMemberLastReadAtParams{
+		ConversationID: conversationID,
+		UserID:         userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, false, repository.ErrConversationNotFound
+		}
+		return time.Time{}, false, err
+	}
+	if !current.Valid {
+		return time.Time{}, false, nil
+	}
+	return current.Time, false, nil
+}
+
+func (r *ConversationRepository) GetLastReadAt(
+	ctx context.Context,
+	conversationID, userID uuid.UUID,
+) (*time.Time, error) {
+	value, err := r.queries.GetMemberLastReadAt(ctx, db.GetMemberLastReadAtParams{
+		ConversationID: conversationID,
+		UserID:         userID,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, repository.ErrConversationNotFound
+		}
+		return nil, err
+	}
+	return timePtr(value), nil
+}
+
+func (r *ConversationRepository) GetOthersReadWatermark(
+	ctx context.Context,
+	conversationID, viewerID uuid.UUID,
+) (*time.Time, error) {
+	value, err := r.queries.GetOthersReadWatermark(ctx, db.GetOthersReadWatermarkParams{
+		ConversationID: conversationID,
+		ViewerID:       viewerID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return timePtr(value), nil
+}
+
+func (r *ConversationRepository) ListMemberIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {
+	return r.queries.ListConversationMemberIDs(ctx, conversationID)
 }

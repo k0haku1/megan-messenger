@@ -88,6 +88,8 @@ func (app *application) mount() http.Handler {
 				r.Post("/join/{slug:[a-z0-9]{11}}", conversationHandler.JoinBySlug)
 				r.Route("/{conversationID}", func(r chi.Router) {
 					r.Post("/leave", conversationHandler.LeaveGroup)
+					r.Post("/read", conversationHandler.MarkRead)
+					r.Get("/read-state", conversationHandler.ReadState)
 					r.Get("/projects", projectHandler.ListConversationProjects)
 					r.Get("/messages", messageHandler.ListMessages)
 					r.Post("/messages", messageHandler.SendMessage)
@@ -129,6 +131,8 @@ func (app *application) mount() http.Handler {
 		})
 	})
 
+	r.With(wsAuthMw, auth.RequireOnboarded).
+		Get("/ws", conversationHandler.InboxWebsocket)
 	r.With(wsAuthMw, auth.RequireOnboarded).
 		Get("/conversations/{conversationID}/ws", conversationHandler.Websocket)
 

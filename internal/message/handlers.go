@@ -62,7 +62,7 @@ func (h *Handler) ListMessages(w http.ResponseWriter, r *http.Request) {
 		cursor = &c
 	}
 
-	messages, err := h.service.ListMessages(r.Context(), user.ID, conversationID, limit, cursor)
+	messages, othersReadAt, err := h.service.ListMessages(r.Context(), user.ID, conversationID, limit, cursor)
 	if err != nil {
 		if errors.Is(err, repository.ErrConversationNotFound) {
 			httputil.NotFound(w, "")
@@ -78,8 +78,9 @@ func (h *Handler) ListMessages(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httputil.SuccessData(w, GetPagingResponse{
-		Messages:   messages,
-		NextCursor: nextCursor,
+		Messages:     messages,
+		NextCursor:   nextCursor,
+		OthersReadAt: othersReadAt,
 	})
 }
 
@@ -145,6 +146,9 @@ func (h *Handler) SendMessage(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.wsService.PublishMessage(r.Context(), conversationID, message); err != nil {
 		slog.Warn("failed to publish message", "err", err)
+	}
+	if err := h.wsService.PublishInboxActivity(r.Context(), message); err != nil {
+		slog.Warn("failed to publish inbox activity", "err", err)
 	}
 
 	httputil.Created(w, SendMessageResponse{Message: message})
@@ -278,6 +282,9 @@ func (h *Handler) ForwardMessage(w http.ResponseWriter, r *http.Request) {
 	if err := h.wsService.PublishMessage(r.Context(), message.ConversationID, message); err != nil {
 		slog.Warn("failed to publish forwarded message", "err", err)
 	}
+	if err := h.wsService.PublishInboxActivity(r.Context(), message); err != nil {
+		slog.Warn("failed to publish inbox activity", "err", err)
+	}
 	httputil.Created(w, MessageResponse{Message: message})
 }
 
@@ -309,6 +316,9 @@ func (h *Handler) ForwardMessages(w http.ResponseWriter, r *http.Request) {
 	for _, message := range messages {
 		if err := h.wsService.PublishMessage(r.Context(), message.ConversationID, message); err != nil {
 			slog.Warn("failed to publish forwarded message", "err", err)
+		}
+		if err := h.wsService.PublishInboxActivity(r.Context(), message); err != nil {
+			slog.Warn("failed to publish inbox activity", "err", err)
 		}
 	}
 	httputil.Created(w, ForwardMessagesResponse{Messages: messages})

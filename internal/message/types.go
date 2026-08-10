@@ -2,13 +2,15 @@ package message
 
 import (
 	"megan-messenger/internal/model"
+	"time"
 
 	"github.com/google/uuid"
 )
 
 type GetPagingResponse struct {
-	Messages   []model.Message `json:"messages"`
-	NextCursor string          `json:"nextCursor"`
+	Messages     []model.Message `json:"messages"`
+	NextCursor   string          `json:"nextCursor"`
+	OthersReadAt *time.Time      `json:"othersReadAt,omitempty"`
 }
 
 type SendMessageRequest struct {

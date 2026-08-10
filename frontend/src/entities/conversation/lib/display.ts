@@ -35,6 +35,12 @@ export function getConversationPreview(conversation: Conversation): string {
   return body
 }
 
+export function formatUnreadCount(count: number): string {
+  if (count <= 0) return ''
+  if (count > 99) return '99+'
+  return String(count)
+}
+
 function formatLastMessageBody(last: ConversationLastMessage): string {
   const text = last.content?.trim()
   if (text) return text

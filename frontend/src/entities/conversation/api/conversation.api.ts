@@ -37,4 +37,18 @@ export const conversationApi = {
     request<{ projects: Pick<Project, 'id' | 'name'>[] }>(
       `/conversations/${encodeURIComponent(conversationId)}/projects`,
     ),
+
+  markRead: (conversationId: string, messageId: string) =>
+    request<{ lastReadAt: string; othersReadAt?: string }>(
+      `/conversations/${encodeURIComponent(conversationId)}/read`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ messageId }),
+      },
+    ),
+
+  readState: (conversationId: string) =>
+    request<{ lastReadAt?: string; othersReadAt?: string }>(
+      `/conversations/${encodeURIComponent(conversationId)}/read-state`,
+    ),
 }

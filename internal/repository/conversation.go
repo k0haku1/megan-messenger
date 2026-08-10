@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"megan-messenger/internal/model"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -20,4 +21,8 @@ type ConversationRepository interface {
 	IsMember(ctx context.Context, conversationID, userID uuid.UUID) (bool, error)
 	FindDM(ctx context.Context, userLow, userHigh uuid.UUID) (uuid.UUID, error)
 	CreateDMPair(ctx context.Context, userLow, userHigh, conversationID uuid.UUID) error
+	AdvanceLastReadAt(ctx context.Context, conversationID, userID uuid.UUID, readAt time.Time) (time.Time, bool, error)
+	GetLastReadAt(ctx context.Context, conversationID, userID uuid.UUID) (*time.Time, error)
+	GetOthersReadWatermark(ctx context.Context, conversationID, viewerID uuid.UUID) (*time.Time, error)
+	ListMemberIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
 }

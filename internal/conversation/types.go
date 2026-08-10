@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"megan-messenger/internal/model"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -33,4 +34,18 @@ type ListResponse struct {
 
 type JoinBySlugResponse struct {
 	ID uuid.UUID `json:"id"`
+}
+
+type MarkReadRequest struct {
+	MessageID uuid.UUID `json:"messageId" validate:"required"`
+}
+
+type MarkReadResponse struct {
+	LastReadAt   time.Time  `json:"lastReadAt"`
+	OthersReadAt *time.Time `json:"othersReadAt,omitempty"`
+}
+
+type ReadStateResponse struct {
+	LastReadAt   *time.Time `json:"lastReadAt,omitempty"`
+	OthersReadAt *time.Time `json:"othersReadAt,omitempty"`
 }

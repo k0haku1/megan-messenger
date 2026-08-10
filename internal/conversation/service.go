@@ -7,6 +7,7 @@ import (
 	"megan-messenger/internal/repository"
 	"megan-messenger/internal/storage"
 	"megan-messenger/internal/user"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -201,6 +202,8 @@ func (s *Service) SendDMMessage(
 		return model.Conversation{}, model.Message{}, err
 	}
 
+	_, _, _ = s.repo.AdvanceLastReadAt(ctx, conv.ID, selfID, created.CreatedAt)
+
 	return conv, created, nil
 }
 
@@ -277,6 +280,60 @@ func (s *Service) LeaveGroup(ctx context.Context, userID, conversationID uuid.UU
 	}
 
 	return s.repo.RemoveMember(ctx, conversationID, userID)
+}
+
+func (s *Service) MarkRead(ctx context.Context, userID, conversationID, messageID uuid.UUID) (time.Time, bool, error) {
+	ok, err := s.repo.IsMember(ctx, conversationID, userID)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if !ok {
+		return time.Time{}, false, repository.ErrConversationNotFound
+	}
+
+	message, err := s.messages.GetByID(ctx, messageID)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	if message.ConversationID != conversationID || message.DeletedAt != nil {
+		return time.Time{}, false, repository.ErrMessageNotFound
+	}
+
+	lastReadAt, advanced, err := s.repo.AdvanceLastReadAt(ctx, conversationID, userID, message.CreatedAt)
+	if err != nil {
+		return time.Time{}, false, err
+	}
+	return lastReadAt, advanced, nil
+}
+
+func (s *Service) GetReadState(ctx context.Context, userID, conversationID uuid.UUID) (*time.Time, *time.Time, error) {
+	ok, err := s.repo.IsMember(ctx, conversationID, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !ok {
+		return nil, nil, repository.ErrConversationNotFound
+	}
+	mine, err := s.repo.GetLastReadAt(ctx, conversationID, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	others, err := s.repo.GetOthersReadWatermark(ctx, conversationID, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return mine, others, nil
+}
+
+func (s *Service) GetOthersReadWatermark(ctx context.Context, userID, conversationID uuid.UUID) (*time.Time, error) {
+	ok, err := s.repo.IsMember(ctx, conversationID, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, repository.ErrConversationNotFound
+	}
+	return s.repo.GetOthersReadWatermark(ctx, conversationID, userID)
 }
 
 func (s *Service) EnsureMember(ctx context.Context, userID, conversationID uuid.UUID) (model.Conversation, error) {

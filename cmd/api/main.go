@@ -84,7 +84,7 @@ func main() {
 	)
 	userService := user.NewService(userRepo, conversationRepo, objectStore, urlResolver)
 	conversationService := conversation.NewService(conversationRepo, userRepo, messageRepo, urlResolver)
-	wsService := ws.NewService(rdb, userRepo, messageRepo, cfg.CORS.AllowedOrigins)
+	wsService := ws.NewService(rdb, userRepo, messageRepo, conversationRepo, cfg.CORS.AllowedOrigins)
 	messageService := message.NewService(conversationRepo, messageRepo, attachmentRepo, userRepo, objectStore, urlResolver)
 	projectService := project.NewService(projectRepo, userRepo, conversationRepo, messageRepo)
 	rateLimiter := ratelimit.New(rdb)

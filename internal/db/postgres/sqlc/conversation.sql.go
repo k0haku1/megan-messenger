@@ -35,6 +35,28 @@ func (q *Queries) AddConversationMember(ctx context.Context, arg AddConversation
 	return err
 }
 
+const advanceMemberLastReadAt = `-- name: AdvanceMemberLastReadAt :one
+UPDATE conversation_members
+SET last_read_at = $1
+WHERE conversation_id = $2
+  AND user_id = $3
+  AND (last_read_at IS NULL OR last_read_at < $1)
+RETURNING last_read_at
+`
+
+type AdvanceMemberLastReadAtParams struct {
+	LastReadAt     pgtype.Timestamptz `db:"last_read_at" json:"lastReadAt"`
+	ConversationID uuid.UUID          `db:"conversation_id" json:"conversationId"`
+	UserID         uuid.UUID          `db:"user_id" json:"userId"`
+}
+
+func (q *Queries) AdvanceMemberLastReadAt(ctx context.Context, arg AdvanceMemberLastReadAtParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, advanceMemberLastReadAt, arg.LastReadAt, arg.ConversationID, arg.UserID)
+	var last_read_at pgtype.Timestamptz
+	err := row.Scan(&last_read_at)
+	return last_read_at, err
+}
+
 const conversationExists = `-- name: ConversationExists :one
 SELECT EXISTS (SELECT 1
                FROM conversations
@@ -155,6 +177,48 @@ func (q *Queries) GetConversationBySlug(ctx context.Context, slug pgtype.Text) (
 	return i, err
 }
 
+const getMemberLastReadAt = `-- name: GetMemberLastReadAt :one
+SELECT last_read_at
+FROM conversation_members
+WHERE conversation_id = $1
+  AND user_id = $2
+`
+
+type GetMemberLastReadAtParams struct {
+	ConversationID uuid.UUID `db:"conversation_id" json:"conversationId"`
+	UserID         uuid.UUID `db:"user_id" json:"userId"`
+}
+
+func (q *Queries) GetMemberLastReadAt(ctx context.Context, arg GetMemberLastReadAtParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, getMemberLastReadAt, arg.ConversationID, arg.UserID)
+	var last_read_at pgtype.Timestamptz
+	err := row.Scan(&last_read_at)
+	return last_read_at, err
+}
+
+const getOthersReadWatermark = `-- name: GetOthersReadWatermark :one
+SELECT CASE
+           WHEN COUNT(*) = 0 THEN NULL
+           WHEN COUNT(*) FILTER (WHERE last_read_at IS NULL) > 0 THEN NULL
+           ELSE MIN(last_read_at)
+           END::timestamptz AS watermark
+FROM conversation_members
+WHERE conversation_id = $1
+  AND user_id <> $2
+`
+
+type GetOthersReadWatermarkParams struct {
+	ConversationID uuid.UUID `db:"conversation_id" json:"conversationId"`
+	ViewerID       uuid.UUID `db:"viewer_id" json:"viewerId"`
+}
+
+func (q *Queries) GetOthersReadWatermark(ctx context.Context, arg GetOthersReadWatermarkParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, getOthersReadWatermark, arg.ConversationID, arg.ViewerID)
+	var watermark pgtype.Timestamptz
+	err := row.Scan(&watermark)
+	return watermark, err
+}
+
 const getUserConversations = `-- name: GetUserConversations :many
 SELECT c.id,
        c.type,
@@ -167,8 +231,33 @@ SELECT c.id,
        lm.id              AS last_message_id,
        lm.content         AS last_message_content,
        lm.created_at      AS last_message_created_at,
+       lm.sender_id       AS last_message_sender_id,
        lm_sender.username AS last_message_sender_username,
-       COALESCE(att.kind, '') AS last_message_attachment_kind
+       COALESCE(att.kind, '') AS last_message_attachment_kind,
+       (
+           SELECT COUNT(*)::int
+           FROM messages m
+           WHERE m.conversation_id = c.id
+             AND m.deleted_at IS NULL
+             AND m.sender_id <> $1
+             AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
+             AND NOT EXISTS (
+               SELECT 1
+               FROM hidden_messages hm
+               WHERE hm.message_id = m.id
+                 AND hm.user_id = $1
+             )
+       ) AS unread_count,
+       (
+           SELECT CASE
+                      WHEN COUNT(*) = 0 THEN NULL
+                      WHEN COUNT(*) FILTER (WHERE last_read_at IS NULL) > 0 THEN NULL
+                      ELSE MIN(last_read_at)
+                      END
+           FROM conversation_members om
+           WHERE om.conversation_id = c.id
+             AND om.user_id <> $1
+       )::timestamptz AS others_read_at
 FROM conversations c
          JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $1
          LEFT JOIN conversation_members pcm
@@ -211,12 +300,15 @@ type GetUserConversationsRow struct {
 	LastMessageID             pgtype.UUID        `db:"last_message_id" json:"lastMessageId"`
 	LastMessageContent        pgtype.Text        `db:"last_message_content" json:"lastMessageContent"`
 	LastMessageCreatedAt      pgtype.Timestamptz `db:"last_message_created_at" json:"lastMessageCreatedAt"`
+	LastMessageSenderID       pgtype.UUID        `db:"last_message_sender_id" json:"lastMessageSenderId"`
 	LastMessageSenderUsername pgtype.Text        `db:"last_message_sender_username" json:"lastMessageSenderUsername"`
 	LastMessageAttachmentKind string             `db:"last_message_attachment_kind" json:"lastMessageAttachmentKind"`
+	UnreadCount               int32              `db:"unread_count" json:"unreadCount"`
+	OthersReadAt              pgtype.Timestamptz `db:"others_read_at" json:"othersReadAt"`
 }
 
-func (q *Queries) GetUserConversations(ctx context.Context, userID uuid.UUID) ([]GetUserConversationsRow, error) {
-	rows, err := q.db.Query(ctx, getUserConversations, userID)
+func (q *Queries) GetUserConversations(ctx context.Context, senderID uuid.UUID) ([]GetUserConversationsRow, error) {
+	rows, err := q.db.Query(ctx, getUserConversations, senderID)
 	if err != nil {
 		return nil, err
 	}
@@ -236,8 +328,11 @@ func (q *Queries) GetUserConversations(ctx context.Context, userID uuid.UUID) ([
 			&i.LastMessageID,
 			&i.LastMessageContent,
 			&i.LastMessageCreatedAt,
+			&i.LastMessageSenderID,
 			&i.LastMessageSenderUsername,
 			&i.LastMessageAttachmentKind,
+			&i.UnreadCount,
+			&i.OthersReadAt,
 		); err != nil {
 			return nil, err
 		}
@@ -266,6 +361,32 @@ func (q *Queries) IsConversationMember(ctx context.Context, arg IsConversationMe
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const listConversationMemberIDs = `-- name: ListConversationMemberIDs :many
+SELECT user_id
+FROM conversation_members
+WHERE conversation_id = $1
+`
+
+func (q *Queries) ListConversationMemberIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listConversationMemberIDs, conversationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []uuid.UUID{}
+	for rows.Next() {
+		var user_id uuid.UUID
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const removeConversationMember = `-- name: RemoveConversationMember :exec

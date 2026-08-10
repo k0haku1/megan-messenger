@@ -26,8 +26,33 @@ SELECT c.id,
        lm.id              AS last_message_id,
        lm.content         AS last_message_content,
        lm.created_at      AS last_message_created_at,
+       lm.sender_id       AS last_message_sender_id,
        lm_sender.username AS last_message_sender_username,
-       COALESCE(att.kind, '') AS last_message_attachment_kind
+       COALESCE(att.kind, '') AS last_message_attachment_kind,
+       (
+           SELECT COUNT(*)::int
+           FROM messages m
+           WHERE m.conversation_id = c.id
+             AND m.deleted_at IS NULL
+             AND m.sender_id <> $1
+             AND (cm.last_read_at IS NULL OR m.created_at > cm.last_read_at)
+             AND NOT EXISTS (
+               SELECT 1
+               FROM hidden_messages hm
+               WHERE hm.message_id = m.id
+                 AND hm.user_id = $1
+             )
+       ) AS unread_count,
+       (
+           SELECT CASE
+                      WHEN COUNT(*) = 0 THEN NULL
+                      WHEN COUNT(*) FILTER (WHERE last_read_at IS NULL) > 0 THEN NULL
+                      ELSE MIN(last_read_at)
+                      END
+           FROM conversation_members om
+           WHERE om.conversation_id = c.id
+             AND om.user_id <> $1
+       )::timestamptz AS others_read_at
 FROM conversations c
          JOIN conversation_members cm ON cm.conversation_id = c.id AND cm.user_id = $1
          LEFT JOIN conversation_members pcm
@@ -88,3 +113,32 @@ VALUES ($1, $2, $3);
 SELECT EXISTS (SELECT 1
                FROM conversations
                WHERE id = $1);
+
+-- name: AdvanceMemberLastReadAt :one
+UPDATE conversation_members
+SET last_read_at = @last_read_at
+WHERE conversation_id = @conversation_id
+  AND user_id = @user_id
+  AND (last_read_at IS NULL OR last_read_at < @last_read_at)
+RETURNING last_read_at;
+
+-- name: GetMemberLastReadAt :one
+SELECT last_read_at
+FROM conversation_members
+WHERE conversation_id = @conversation_id
+  AND user_id = @user_id;
+
+-- name: GetOthersReadWatermark :one
+SELECT CASE
+           WHEN COUNT(*) = 0 THEN NULL
+           WHEN COUNT(*) FILTER (WHERE last_read_at IS NULL) > 0 THEN NULL
+           ELSE MIN(last_read_at)
+           END::timestamptz AS watermark
+FROM conversation_members
+WHERE conversation_id = @conversation_id
+  AND user_id <> @viewer_id;
+
+-- name: ListConversationMemberIDs :many
+SELECT user_id
+FROM conversation_members
+WHERE conversation_id = $1;

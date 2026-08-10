@@ -31,12 +31,23 @@
     />
     <path
       v-else-if="name === 'check'"
-      d="M5 12l4 4L19 6"
+      d="M5.5 12.5l3.2 3.2L18 6.5"
       stroke="currentColor"
-      stroke-width="2"
+      stroke-width="2.2"
       stroke-linecap="round"
       stroke-linejoin="round"
     />
+    <g
+      v-else-if="name === 'checks'"
+      stroke="currentColor"
+      stroke-width="2.2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+    >
+      <path d="M2.8 12.6l3 3L12.2 8" />
+      <path d="M9.2 13.2l3.1 3.1L21.2 7.2" />
+    </g>
     <path
       v-else-if="name === 'edit'"
       d="M4 20h4l10.5-10.5a2.1 2.1 0 0 0-3-3L5 17v3"

@@ -5,6 +5,7 @@ import type { Message, MessageAttachment } from '@/entities/message/model/types'
 type MessageListResponse = {
   messages: Message[]
   nextCursor: string
+  othersReadAt?: string
 }
 
 type MediaListResponse = {

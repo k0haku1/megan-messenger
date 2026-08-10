@@ -9,6 +9,7 @@ export interface ConversationPeer {
 export interface ConversationLastMessage {
   id: string
   content: string
+  senderId?: string
   senderUsername?: string
   attachmentKind?: 'image' | 'video' | 'file' | string
   createdAt: string
@@ -21,5 +22,7 @@ export interface Conversation {
   slug?: string
   peer?: ConversationPeer
   lastMessage?: ConversationLastMessage
+  unreadCount?: number
+  othersReadAt?: string
   createdAt?: string
 }

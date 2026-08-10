@@ -5,6 +5,11 @@ export async function upsertMessage(message: Message): Promise<void> {
   await db.messages.put(message)
 }
 
+export async function upsertMessages(messages: Message[]): Promise<void> {
+  if (messages.length === 0) return
+  await db.messages.bulkPut(messages)
+}
+
 export async function removeMessage(messageId: string): Promise<void> {
   await db.messages.delete(messageId)
 }

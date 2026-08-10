@@ -26,6 +26,7 @@
         class="conversation-item"
         :class="{
           'is-active': selectedConversationId === conversation.id,
+          'is-unread': (conversation.unreadCount ?? 0) > 0,
           'is-dragging': drag?.conversationId === conversation.id && drag.active,
         }"
         type="button"
@@ -40,10 +41,24 @@
         <span class="conversation-item__body">
           <span class="conversation-item__row">
             <strong>{{ getConversationTitle(conversation) }}</strong>
-            <time>{{ formatConversationListTime(getConversationActivityAt(conversation)) }}</time>
+            <span class="conversation-item__meta">
+              <MessageStatusTicks
+                v-if="ownLastReceipt(conversation)"
+                :status="ownLastReceipt(conversation)!"
+              />
+              <time>{{ formatConversationListTime(getConversationActivityAt(conversation)) }}</time>
+            </span>
           </span>
-          <span class="conversation-item__preview">
-            {{ getConversationPreview(conversation) }}
+          <span class="conversation-item__bottom">
+            <span class="conversation-item__preview">
+              {{ getConversationPreview(conversation) }}
+            </span>
+            <span
+              v-if="(conversation.unreadCount ?? 0) > 0"
+              class="conversation-item__unread"
+            >
+              {{ formatUnreadCount(conversation.unreadCount ?? 0) }}
+            </span>
           </span>
         </span>
       </button>
@@ -82,6 +97,7 @@ import { useConversations } from '@/entities/conversation/api/conversation.queri
 import { useConversationSelectionStore } from '@/features/conversation-selection/model/conversation-selection.store'
 import {
   formatConversationListTime,
+  formatUnreadCount,
   getConversationActivityAt,
   getConversationAvatarName,
   getConversationAvatarUrl,
@@ -89,6 +105,10 @@ import {
   getConversationTitle,
 } from '@/entities/conversation/lib/display'
 import type { Conversation } from '@/entities/conversation/model/types'
+import { ownMessageReceiptStatus, type MessageReceiptStatus } from '@/entities/message/lib/receipt-status'
+import MessageStatusTicks from '@/entities/message/ui/MessageStatusTicks.vue'
+import { useSessionStore } from '@/entities/session/model/session.store'
+import { useReadWatermarkStore } from '@/features/message-read/model/read-watermark.store'
 import { normalizeUsernameQuery } from '@/entities/user/lib/username'
 import { useChatWorkspaceStore } from '@/features/chat-workspace/model/chat-workspace.store'
 import { useConversationListDrag } from '@/features/chat-workspace/model/use-conversation-list-drag'
@@ -105,6 +125,8 @@ const { conversations, isError } = useConversations()
 const navigation = useConversationSelectionStore()
 const workspace = useChatWorkspaceStore()
 const searchStore = useGlobalSearchStore()
+const session = useSessionStore()
+const watermarks = useReadWatermarkStore()
 const { selectedConversationId, activeFolder } = storeToRefs(navigation)
 const searchInputRef = ref<{ focus: () => void } | null>(null)
 
@@ -184,7 +206,27 @@ function onItemPointerDown(event: PointerEvent, conversation: Conversation): voi
   })
 }
 
+function ownLastReceipt(conversation: Conversation): MessageReceiptStatus | null {
+  const last = conversation.lastMessage
+  const userId = session.user?.id
+  if (!last?.senderId || !userId || last.senderId !== userId) return null
+  const othersReadAt = conversation.othersReadAt ?? watermarks.getOthersReadAt(conversation.id)
+  return ownMessageReceiptStatus(last.createdAt, othersReadAt)
+}
+
 function focusSearch() {
   searchInputRef.value?.focus()
 }
+
+watch(
+  conversations,
+  (items) => {
+    for (const conversation of items) {
+      if (conversation.othersReadAt !== undefined) {
+        watermarks.setOthersReadAt(conversation.id, conversation.othersReadAt)
+      }
+    }
+  },
+  { immediate: true },
+)
 </script>

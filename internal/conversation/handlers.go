@@ -150,6 +150,9 @@ func (h *Handler) SendDMMessage(w http.ResponseWriter, r *http.Request) {
 	if err := h.wsService.PublishMessage(r.Context(), conv.ID, message); err != nil {
 		slog.Warn("failed to publish dm message", "err", err)
 	}
+	if err := h.wsService.PublishInboxActivity(r.Context(), message); err != nil {
+		slog.Warn("failed to publish inbox activity", "err", err)
+	}
 
 	httputil.Created(w, SendDMMessageResponse{
 		Conversation: conv,
@@ -221,6 +224,81 @@ func (h *Handler) LeaveGroup(w http.ResponseWriter, r *http.Request) {
 	httputil.NoContent(w)
 }
 
+func (h *Handler) MarkRead(w http.ResponseWriter, r *http.Request) {
+	user := httputil.UserFromRequest(r)
+
+	conversationID, err := httputil.ParseConversationID(r)
+	if err != nil {
+		httputil.BadRequest(w, "invalid conversation id")
+		return
+	}
+
+	var params MarkReadRequest
+	if err := httputil.Read(r, &params); err != nil {
+		httputil.InvalidRequestBody(w)
+		return
+	}
+	if err := h.validator.Validate(params); err != nil {
+		httputil.ValidationError(w, err)
+		return
+	}
+
+	lastReadAt, advanced, err := h.service.MarkRead(r.Context(), user.ID, conversationID, params.MessageID)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrConversationNotFound):
+			httputil.NotFound(w, "")
+		case errors.Is(err, repository.ErrMessageNotFound):
+			httputil.NotFound(w, "")
+		default:
+			httputil.InternalError(w, r, err)
+		}
+		return
+	}
+
+	if advanced {
+		if err := h.wsService.PublishRead(r.Context(), conversationID, user.ID, lastReadAt); err != nil {
+			slog.Warn("failed to publish read receipt", "err", err)
+		}
+	}
+
+	othersReadAt, err := h.service.GetOthersReadWatermark(r.Context(), user.ID, conversationID)
+	if err != nil {
+		httputil.InternalError(w, r, err)
+		return
+	}
+
+	httputil.SuccessData(w, MarkReadResponse{
+		LastReadAt:   lastReadAt,
+		OthersReadAt: othersReadAt,
+	})
+}
+
+func (h *Handler) ReadState(w http.ResponseWriter, r *http.Request) {
+	user := httputil.UserFromRequest(r)
+
+	conversationID, err := httputil.ParseConversationID(r)
+	if err != nil {
+		httputil.BadRequest(w, "invalid conversation id")
+		return
+	}
+
+	lastReadAt, othersReadAt, err := h.service.GetReadState(r.Context(), user.ID, conversationID)
+	if err != nil {
+		if errors.Is(err, repository.ErrConversationNotFound) {
+			httputil.NotFound(w, "")
+			return
+		}
+		httputil.InternalError(w, r, err)
+		return
+	}
+
+	httputil.SuccessData(w, ReadStateResponse{
+		LastReadAt:   lastReadAt,
+		OthersReadAt: othersReadAt,
+	})
+}
+
 // Websocket godoc
 //
 //	@Summary		Connect to conversation websocket
@@ -254,5 +332,12 @@ func (h *Handler) Websocket(w http.ResponseWriter, r *http.Request) {
 
 	if err := h.wsService.HandleWebSocket(w, r, conv, user.ID); err != nil {
 		slog.Error("websocket error", "err", err)
+	}
+}
+
+func (h *Handler) InboxWebsocket(w http.ResponseWriter, r *http.Request) {
+	user := httputil.UserFromRequest(r)
+	if err := h.wsService.HandleInboxWebSocket(w, r, user.ID); err != nil {
+		slog.Error("inbox websocket error", "err", err)
 	}
 }

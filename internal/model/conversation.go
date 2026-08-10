@@ -23,6 +23,8 @@ type Conversation struct {
 	Peer        *ConversationPeer    `json:"peer,omitempty"`
 	Members     []ConversationMember `json:"members,omitempty"`
 	LastMessage *ConversationPreview `json:"lastMessage,omitempty"`
+	UnreadCount int                  `json:"unreadCount"`
+	OthersReadAt *time.Time          `json:"othersReadAt,omitempty"`
 	CreatedAt   time.Time            `json:"createdAt"`
 }
 
@@ -34,11 +36,12 @@ type ConversationPeer struct {
 
 // ConversationPreview is the last visible message snippet for the chat list.
 type ConversationPreview struct {
-	ID              uuid.UUID `json:"id"`
-	Content         string    `json:"content"`
-	SenderUsername  string    `json:"senderUsername,omitempty"`
-	AttachmentKind  string    `json:"attachmentKind,omitempty"`
-	CreatedAt       time.Time `json:"createdAt"`
+	ID             uuid.UUID `json:"id"`
+	Content        string    `json:"content"`
+	SenderID       uuid.UUID `json:"senderId"`
+	SenderUsername string    `json:"senderUsername,omitempty"`
+	AttachmentKind string    `json:"attachmentKind,omitempty"`
+	CreatedAt      time.Time `json:"createdAt"`
 }
 
 func NewGroupConversation(title string) (Conversation, error) {

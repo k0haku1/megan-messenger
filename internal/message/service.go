@@ -61,23 +61,27 @@ func NewService(
 	}
 }
 
-func (s *Service) ListMessages(ctx context.Context, userID, conversationID uuid.UUID, limit int, cursor *pagination.Cursor) ([]model.Message, error) {
+func (s *Service) ListMessages(ctx context.Context, userID, conversationID uuid.UUID, limit int, cursor *pagination.Cursor) ([]model.Message, *time.Time, error) {
 	ok, err := s.conversationRepo.IsMember(ctx, conversationID, userID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if !ok {
-		return nil, repository.ErrConversationNotFound
+		return nil, nil, repository.ErrConversationNotFound
 	}
 
 	messages, err := s.messageRepo.ListMessages(ctx, conversationID, userID, limit, cursor)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := s.hydrateMessages(ctx, messages); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return messages, nil
+	othersReadAt, err := s.conversationRepo.GetOthersReadWatermark(ctx, conversationID, userID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return messages, othersReadAt, nil
 }
 
 func (s *Service) SendMessage(
@@ -143,6 +147,8 @@ func (s *Service) SendMessage(
 			return model.Message{}, err
 		}
 	}
+
+	_, _, _ = s.conversationRepo.AdvanceLastReadAt(ctx, conversationID, userID, created.CreatedAt)
 
 	hydrated := []model.Message{created}
 	if err := s.hydrateMessages(ctx, hydrated); err != nil {
@@ -417,6 +423,10 @@ func (s *Service) ForwardMessages(
 			}
 		}
 		created = append(created, msg)
+	}
+
+	if len(created) > 0 {
+		_, _, _ = s.conversationRepo.AdvanceLastReadAt(ctx, targetConversationID, userID, created[len(created)-1].CreatedAt)
 	}
 
 	if err := s.hydrateMessages(ctx, created); err != nil {

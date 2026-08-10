@@ -118,8 +118,9 @@
         <div
           ref="messageAreaRef"
           class="message-area"
+          :class="{ 'is-positioning': !openPositionReady }"
           :style="{ paddingBottom: `${messageAreaBottomPad}px` }"
-          @scroll.passive="onContainerScroll"
+          @scroll.passive="onMessageAreaScroll"
         >
           <div v-if="visibleMessages.length === 0" class="chat-empty">
             <AppIcon class="chat-empty__icon" name="mail" />
@@ -135,6 +136,7 @@
               v-for="(message, index) in visibleMessages"
               :key="message.id"
               class="message-item"
+              :data-message-id="message.id"
               :class="{
                 'is-own': isOwnMessage(message, currentUserId),
                 'is-deleting': deletingMessageIds.has(message.id),
@@ -185,7 +187,19 @@
                   <span v-else-if="message.replyToId" class="message-bubble__reference">↩ Исходное сообщение недоступно</span>
                   <span v-if="message.forwardedFromId" class="message-bubble__reference">↪ Пересланное сообщение</span>
                   <MessageAttachments :attachments="message.attachments" />
-                  <p v-if="message.content">{{ message.content }}</p>
+                  <div class="message-bubble__content">
+                    <p v-if="message.content">{{ message.content }}<span class="message-bubble__meta"><time>{{ formatMessageTime(message.createdAt) }}</time><MessageStatusTicks
+                      v-if="isOwnMessage(message, currentUserId)"
+                      :status="receiptStatusFor(message)"
+                    /></span></p>
+                    <div v-else class="message-bubble__meta">
+                      <time>{{ formatMessageTime(message.createdAt) }}</time>
+                      <MessageStatusTicks
+                        v-if="isOwnMessage(message, currentUserId)"
+                        :status="receiptStatusFor(message)"
+                      />
+                    </div>
+                  </div>
                   <div v-if="message.reactions?.length" class="message-bubble__reactions">
                     <button
                       v-for="reaction in message.reactions"
@@ -222,7 +236,6 @@
                       @emoji-click="onEmojiClick(message, $event)"
                     />
                   </div>
-                  <time>{{ formatMessageTime(message.createdAt) }}</time>
                 </article>
               </div>
 
@@ -242,7 +255,7 @@
         </div>
 
         <button
-          v-if="showJumpToLatest"
+          v-if="showJumpToLatest && openPositionReady"
           type="button"
           class="jump-to-latest"
           :style="{ bottom: `${jumpBottomOffset}px` }"
@@ -361,17 +374,22 @@ import { useConversationProjects } from '@/entities/conversation/lib/use-convers
 import { useConversation } from '@/entities/conversation/lib/use-conversation'
 import { hideMessageForMe } from '@/entities/message/api/hidden-message.repository'
 import { messageApi } from '@/entities/message/api/message.api'
+import { conversationApi } from '@/entities/conversation/api/conversation.api'
 import { removeMessage, upsertMessage } from '@/entities/message/api/message.repository'
 import type { Message } from '@/entities/message/model/types'
 import MessageAttachments from '@/entities/message/ui/MessageAttachments.vue'
+import MessageStatusTicks from '@/entities/message/ui/MessageStatusTicks.vue'
 import {
   formatMessageTime,
   isOwnMessage,
   shouldShowSenderAvatar,
   shouldShowSenderName,
 } from '@/entities/message/lib/display'
+import { ownMessageReceiptStatus } from '@/entities/message/lib/receipt-status'
 import { useConversationMessages } from '@/entities/message/lib/use-conversation-messages'
 import { useMessageComposer } from '@/features/compose-message/model/use-message-composer'
+import { useMarkConversationRead } from '@/features/message-read/model/use-mark-conversation-read'
+import { useReadWatermarkStore } from '@/features/message-read/model/read-watermark.store'
 import { useMessagesSync } from '@/features/message-sync/model/use-messages-sync'
 import { useConversationWs } from '@/features/conversation-ws/model/use-conversation-ws'
 import { useScrollToLatest } from '@/features/scroll-to-latest/model/use-scroll-to-latest'
@@ -472,6 +490,47 @@ const conversation = useConversation(activeConversationId)
 const visibleMessages = useConversationMessages(activeConversationId)
 const currentUserId = computed(() => session.user?.id)
 const messagesById = computed(() => new Map(visibleMessages.value.map((message) => [message.id, message])))
+const lastReadAt = ref<string | null>(null)
+const readStateReady = ref(false)
+
+const scrollMessages = computed(() =>
+  visibleMessages.value.map((message) => ({
+    id: message.id,
+    createdAt: message.createdAt,
+    senderId: message.sender.id,
+  })),
+)
+
+/** Snapshot at open — cleared when the viewer catches up (near bottom / jump). */
+const openUnreadCount = ref(0)
+
+watch(
+  activeConversationId,
+  (id) => {
+    openUnreadCount.value = id ? (conversation.value?.unreadCount ?? 0) : 0
+    lastReadAt.value = null
+    readStateReady.value = false
+    if (!id) {
+      readStateReady.value = true
+      return
+    }
+    void conversationApi
+      .readState(id)
+      .then((state) => {
+        if (activeConversationId.value === id) {
+          lastReadAt.value = state.lastReadAt ?? null
+          readStateReady.value = true
+        }
+      })
+      .catch(() => {
+        if (activeConversationId.value === id) {
+          lastReadAt.value = null
+          readStateReady.value = true
+        }
+      })
+  },
+  { immediate: true },
+)
 
 const messageAreaRef = ref<HTMLElement | null>(null)
 const latestMessageId = computed(() => visibleMessages.value.at(-1)?.id ?? null)
@@ -481,20 +540,72 @@ const latestIsOwn = computed(() => {
   return isOwnMessage(latest, currentUserId.value)
 })
 
-const { showJumpToLatest, unseenCount, onContainerScroll, scrollToLatest } = useScrollToLatest({
+const {
+  messagesSynced,
+  openHistoryReady,
+  syncedLatestMessageId,
+  syncedMessageCount,
+  hasMoreOlder,
+  isLoadingOlder,
+  loadOlder,
+} = useMessagesSync(activeConversationId, {
+  messagesAsc: scrollMessages,
+  currentUserId,
+  lastReadAt,
+  readStateReady,
+  openUnreadCount,
+})
+
+const { showJumpToLatest, unseenCount, stickToBottom, openPositionReady, onContainerScroll, scrollToLatest } = useScrollToLatest({
   container: messageAreaRef,
   conversationKey: activeConversationId,
   latestMessageId,
   latestIsOwn,
+  unreadCount: openUnreadCount,
+  messages: scrollMessages,
+  currentUserId,
+  lastReadAt,
+  readStateReady,
+  messagesSynced,
+  openHistoryReady,
+  syncedLatestMessageId,
+  syncedMessageCount,
+  onCaughtUp: () => {
+    openUnreadCount.value = 0
+  },
 })
+
+function onMessageAreaScroll() {
+  onContainerScroll()
+  const el = messageAreaRef.value
+  if (!el || isLoadingOlder.value || !hasMoreOlder.value) return
+  if (el.scrollTop <= 80) {
+    void loadOlder(el)
+  }
+}
 
 const isGroupChat = computed(() => conversation.value?.type === 'group')
 const linkedProjectsQuery = useConversationProjects(activeConversationId, isGroupChat)
 const linkedProjects = computed(() => linkedProjectsQuery.data.value ?? [])
 const canCaptureDecision = computed(() => isGroupChat.value && linkedProjects.value.length > 0)
 
-useMessagesSync(activeConversationId)
+const readWatermarks = useReadWatermarkStore()
+const { othersReadAtByConversation } = storeToRefs(readWatermarks)
+const chatActive = computed(() => Boolean(props.active && activeConversationId.value))
+
 useConversationWs(activeConversationId)
+useMarkConversationRead({
+  conversationId: activeConversationId,
+  latestMessageId,
+  enabled: chatActive,
+  stickToBottom,
+})
+
+function receiptStatusFor(message: Message) {
+  const conversationId = activeConversationId.value
+  const othersReadAt = conversationId ? othersReadAtByConversation.value[conversationId] : null
+  return ownMessageReceiptStatus(message.createdAt, othersReadAt)
+}
 
 const header = computed(() => {
   if (conversation.value) {
@@ -561,7 +672,7 @@ const {
   replyTo,
   onConversationOpened: (conversationId) => navigation.select(conversationId),
   onSent: () => {
-    void scrollToLatest('smooth')
+    void scrollToLatest('auto')
     focusComposer()
   },
 })

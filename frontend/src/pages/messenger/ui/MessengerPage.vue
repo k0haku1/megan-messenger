@@ -11,6 +11,7 @@ import { useRoute } from 'vue-router'
 import { useConversations } from '@/entities/conversation/api/conversation.queries'
 import ConversationList from '@/widgets/conversation-list/ui/ConversationList.vue'
 import ChatWorkspace from '@/widgets/chat-workspace/ui/ChatWorkspace.vue'
+import { useInboxWs } from '@/features/inbox-ws/model/use-inbox-ws'
 import { useUserProfileStore } from '@/features/user-profile/model/user-profile.store'
 import AppShell from '@/shared/ui/AppShell.vue'
 
@@ -18,6 +19,7 @@ const route = useRoute()
 const profileStore = useUserProfileStore()
 
 useConversations()
+useInboxWs()
 
 function openProfileFromRoute() {
   const username = route.params.username

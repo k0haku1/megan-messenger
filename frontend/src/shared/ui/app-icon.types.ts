@@ -3,6 +3,7 @@ export const APP_ICON_NAMES = [
   'chevron-right',
   'close',
   'check',
+  'checks',
   'edit',
   'search',
   'menu',

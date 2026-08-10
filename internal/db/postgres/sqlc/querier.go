@@ -15,6 +15,7 @@ type Querier interface {
 	AddConversationMember(ctx context.Context, arg AddConversationMemberParams) error
 	AddMessageReaction(ctx context.Context, arg AddMessageReactionParams) error
 	AddProjectMember(ctx context.Context, arg AddProjectMemberParams) error
+	AdvanceMemberLastReadAt(ctx context.Context, arg AdvanceMemberLastReadAtParams) (pgtype.Timestamptz, error)
 	AttachToMessage(ctx context.Context, arg AttachToMessageParams) error
 	ClearUserPassword(ctx context.Context, id uuid.UUID) error
 	ConversationExists(ctx context.Context, id uuid.UUID) (bool, error)
@@ -34,10 +35,12 @@ type Querier interface {
 	GetAttachmentByID(ctx context.Context, id uuid.UUID) (MessageAttachment, error)
 	GetConversation(ctx context.Context, id uuid.UUID) (Conversation, error)
 	GetConversationBySlug(ctx context.Context, slug pgtype.Text) (Conversation, error)
+	GetMemberLastReadAt(ctx context.Context, arg GetMemberLastReadAtParams) (pgtype.Timestamptz, error)
 	GetMessageByID(ctx context.Context, id uuid.UUID) (GetMessageByIDRow, error)
 	GetMessageReactionUsers(ctx context.Context, messageID uuid.UUID) ([]GetMessageReactionUsersRow, error)
 	GetMessageReactions(ctx context.Context, arg GetMessageReactionsParams) ([]GetMessageReactionsRow, error)
 	GetMessagesPaging(ctx context.Context, arg GetMessagesPagingParams) ([]GetMessagesPagingRow, error)
+	GetOthersReadWatermark(ctx context.Context, arg GetOthersReadWatermarkParams) (pgtype.Timestamptz, error)
 	GetPhoneOTP(ctx context.Context, phone string) (PhoneOtpCode, error)
 	GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 	GetProjectDecision(ctx context.Context, arg GetProjectDecisionParams) (ProjectDecision, error)
@@ -47,7 +50,7 @@ type Querier interface {
 	GetUser(ctx context.Context, id uuid.UUID) (User, error)
 	GetUserByPhone(ctx context.Context, phone string) (User, error)
 	GetUserByUsername(ctx context.Context, lower string) (User, error)
-	GetUserConversations(ctx context.Context, userID uuid.UUID) ([]GetUserConversationsRow, error)
+	GetUserConversations(ctx context.Context, senderID uuid.UUID) ([]GetUserConversationsRow, error)
 	HideMessageForUser(ctx context.Context, arg HideMessageForUserParams) error
 	IncrementPhoneOTPAttempts(ctx context.Context, phone string) error
 	IsConversationMember(ctx context.Context, arg IsConversationMemberParams) (bool, error)
@@ -56,6 +59,7 @@ type Querier interface {
 	LinkProjectConversation(ctx context.Context, arg LinkProjectConversationParams) error
 	ListAttachmentsByMessageIDs(ctx context.Context, messageIds []uuid.UUID) ([]MessageAttachment, error)
 	ListConversationMedia(ctx context.Context, arg ListConversationMediaParams) ([]MessageAttachment, error)
+	ListConversationMemberIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
 	ListConversationProjects(ctx context.Context, arg ListConversationProjectsParams) ([]Project, error)
 	ListProjectConversations(ctx context.Context, projectID uuid.UUID) ([]ListProjectConversationsRow, error)
 	ListProjectDecisions(ctx context.Context, projectID uuid.UUID) ([]ProjectDecision, error)
