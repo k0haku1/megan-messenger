@@ -1,20 +1,10 @@
-import type { AppIconName } from '@/shared/ui/app-icon.types'
+export const ALL_FOLDER_ID = 'all'
 
-export type FolderId = 'all' | 'personal' | 'groups' | 'work'
-
-export interface FolderConfig {
-  id: FolderId
+export interface SystemFolderConfig {
+  id: typeof ALL_FOLDER_ID
   label: string
-  icon: AppIconName
 }
 
-export const CHAT_FOLDERS: FolderConfig[] = [
-  { id: 'all', icon: 'folder-all', label: 'Все чаты' },
-  { id: 'personal', icon: 'folder-personal', label: 'Личные' },
-  { id: 'groups', icon: 'folder-groups', label: 'Группы' },
-  { id: 'work', icon: 'folder-work', label: 'Работа' },
-]
+export const ALL_FOLDER: SystemFolderConfig = { id: ALL_FOLDER_ID, label: 'Все чаты' }
 
-export const CHAT_FOLDER_TITLES: Record<FolderId, string> = Object.fromEntries(
-  CHAT_FOLDERS.map((folder) => [folder.id, folder.label]),
-) as Record<FolderId, string>
+export type ActiveFolderId = typeof ALL_FOLDER_ID | string

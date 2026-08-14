@@ -24,5 +24,6 @@ export interface Conversation {
   lastMessage?: ConversationLastMessage
   unreadCount?: number
   othersReadAt?: string
+  folderIds?: string[]
   createdAt?: string
 }

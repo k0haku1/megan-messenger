@@ -31,6 +31,7 @@
         }"
         type="button"
         @pointerdown="onItemPointerDown($event, conversation)"
+        @contextmenu="onItemContextMenu($event, conversation)"
       >
         <BaseAvatar
           :name="getConversationAvatarName(conversation)"
@@ -88,6 +89,21 @@
       </div>
     </Teleport>
   </aside>
+
+  <ContextMenu
+    :open="!!contextMenu"
+    :point="contextMenu?.point ?? null"
+    :items="conversationMenuItems"
+    @close="contextMenu = null"
+    @select="onConversationMenuSelect"
+  />
+
+  <AssignChatFolderModal
+    :open="!!assignConversation"
+    :conversation-id="assignConversation?.id ?? ''"
+    :assigned-folder-ids="assignConversation?.folderIds"
+    @close="assignConversation = null"
+  />
 </template>
 
 <script setup lang="ts">
@@ -105,6 +121,8 @@ import {
   getConversationTitle,
 } from '@/entities/conversation/lib/display'
 import type { Conversation } from '@/entities/conversation/model/types'
+import { getActiveFolderTitle } from '@/entities/folder/lib/display'
+import { useFolders } from '@/entities/folder/api/folder.queries'
 import { ownMessageReceiptStatus, type MessageReceiptStatus } from '@/entities/message/lib/receipt-status'
 import MessageStatusTicks from '@/entities/message/ui/MessageStatusTicks.vue'
 import { useSessionStore } from '@/entities/session/model/session.store'
@@ -115,11 +133,12 @@ import { useConversationListDrag } from '@/features/chat-workspace/model/use-con
 import GlobalSearchResults from '@/features/global-search/ui/GlobalSearchResults.vue'
 import NewChatMenu from '@/features/new-chat/ui/NewChatMenu.vue'
 import { useGlobalSearchStore } from '@/features/global-search/model/global-search.store'
+import AssignChatFolderModal from '@/features/assign-chat-folder/ui/AssignChatFolderModal.vue'
 import BaseAvatar from '@/shared/ui/BaseAvatar.vue'
 import BaseSearchInput from '@/shared/ui/BaseSearchInput.vue'
 import AppIcon from '@/shared/ui/AppIcon.vue'
-import { CHAT_FOLDER_TITLES } from '@/shared/config/folders'
-import type { FolderId } from '@/shared/config/folders'
+import ContextMenu from '@/shared/ui/ContextMenu.vue'
+import type { MenuPoint } from '@/shared/lib/position-fixed-menu'
 
 const { conversations, isError } = useConversations()
 const navigation = useConversationSelectionStore()
@@ -130,19 +149,17 @@ const watermarks = useReadWatermarkStore()
 const { selectedConversationId, activeFolder } = storeToRefs(navigation)
 const searchInputRef = ref<{ focus: () => void } | null>(null)
 
-const folderTitle = computed(
-  () => CHAT_FOLDER_TITLES[activeFolder.value as FolderId] ?? 'Папка',
-)
+const { folders } = useFolders()
+
+const folderTitle = computed(() => getActiveFolderTitle(activeFolder.value, folders.value))
 
 const showUserResults = computed(() => normalizeUsernameQuery(searchStore.query).length >= 2)
 
 const filteredConversations = computed(() =>
   conversations.value.filter((conversation) => {
     const matchesFolder =
-      activeFolder.value === 'all'
-      || (activeFolder.value === 'personal' && conversation.type === 'dm')
-      || (activeFolder.value === 'groups' && conversation.type === 'group')
-      || activeFolder.value === 'work'
+      activeFolder.value === 'all' ||
+      (conversation.folderIds?.includes(activeFolder.value) ?? false)
 
     const title = getConversationTitle(conversation).toLocaleLowerCase('ru')
     const query = searchStore.query.toLocaleLowerCase('ru').trim()
@@ -151,6 +168,25 @@ const filteredConversations = computed(() =>
     return matchesFolder && matchesSearch
   }),
 )
+
+const conversationMenuItems = [{ id: 'assign', label: 'Добавить в папку' }]
+
+const contextMenu = ref<{ point: MenuPoint; conversation: Conversation } | null>(null)
+const assignConversation = ref<Conversation | null>(null)
+
+function onItemContextMenu(event: MouseEvent, conversation: Conversation) {
+  event.preventDefault()
+  contextMenu.value = {
+    point: { x: event.clientX, y: event.clientY },
+    conversation,
+  }
+}
+
+function onConversationMenuSelect(actionId: string) {
+  if (actionId !== 'assign' || !contextMenu.value) return
+  assignConversation.value = contextMenu.value.conversation
+  contextMenu.value = null
+}
 
 const { drag, startDrag } = useConversationListDrag({
   onClick: (conversationId) => navigation.select(conversationId),

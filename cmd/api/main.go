@@ -9,6 +9,7 @@ import (
 	"megan-messenger/internal/db/postgres"
 	db "megan-messenger/internal/db/postgres/sqlc"
 	redis2 "megan-messenger/internal/db/redis"
+	"megan-messenger/internal/folder"
 	"megan-messenger/internal/httputil"
 	"megan-messenger/internal/message"
 	"megan-messenger/internal/notification"
@@ -73,6 +74,7 @@ func main() {
 	messageRepo := postgres.NewMessageRepository(queries)
 	attachmentRepo := postgres.NewAttachmentRepository(queries)
 	projectRepo := postgres.NewProjectRepository(queries)
+	folderRepo := postgres.NewFolderRepository(queries)
 
 	authService := auth.NewService(
 		authenticator,
@@ -83,10 +85,11 @@ func main() {
 		cfg.Auth,
 	)
 	userService := user.NewService(userRepo, conversationRepo, objectStore, urlResolver)
-	conversationService := conversation.NewService(conversationRepo, userRepo, messageRepo, urlResolver)
+	conversationService := conversation.NewService(conversationRepo, userRepo, messageRepo, urlResolver, folderRepo)
 	wsService := ws.NewService(rdb, userRepo, messageRepo, conversationRepo, cfg.CORS.AllowedOrigins)
 	messageService := message.NewService(conversationRepo, messageRepo, attachmentRepo, userRepo, objectStore, urlResolver)
 	projectService := project.NewService(projectRepo, userRepo, conversationRepo, messageRepo)
+	folderService := folder.NewService(folderRepo, conversationRepo)
 	rateLimiter := ratelimit.New(rdb)
 	validator := httputil.NewValidator()
 
@@ -101,6 +104,7 @@ func main() {
 		wsService:           wsService,
 		messageService:      messageService,
 		projectService:      projectService,
+		folderService:       folderService,
 		validator:           validator,
 		rateLimiter:         rateLimiter,
 	}

@@ -9,6 +9,7 @@ import (
 	"megan-messenger/internal/auth"
 	"megan-messenger/internal/config"
 	"megan-messenger/internal/conversation"
+	"megan-messenger/internal/folder"
 	"megan-messenger/internal/httputil"
 	"megan-messenger/internal/message"
 	"megan-messenger/internal/project"
@@ -56,6 +57,7 @@ func (app *application) mount() http.Handler {
 	conversationHandler := conversation.NewHandler(app.validator, app.conversationService, app.wsService)
 	messageHandler := message.NewHandler(app.validator, app.messageService, app.wsService)
 	projectHandler := project.NewHandler(app.validator, app.projectService)
+	folderHandler := folder.NewHandler(app.validator, app.folderService)
 
 	r.Handle("/uploads/*", http.StripPrefix("/uploads/", http.FileServer(http.Dir("./uploads"))))
 
@@ -103,6 +105,18 @@ func (app *application) mount() http.Handler {
 						r.Post("/reactions", messageHandler.AddReaction)
 						r.Delete("/reactions", messageHandler.RemoveReaction)
 					})
+				})
+			})
+
+			r.Route("/folders", func(r chi.Router) {
+				r.Get("/", folderHandler.List)
+				r.Post("/", folderHandler.Create)
+				r.Put("/reorder", folderHandler.Reorder)
+				r.Route("/{folderID}", func(r chi.Router) {
+					r.Patch("/", folderHandler.Update)
+					r.Delete("/", folderHandler.Delete)
+					r.Post("/items", folderHandler.AddItems)
+					r.Delete("/items/{conversationID}", folderHandler.RemoveItem)
 				})
 			})
 
@@ -198,6 +212,7 @@ type application struct {
 	wsService           *ws.Service
 	messageService      *message.Service
 	projectService      *project.Service
+	folderService       *folder.Service
 	validator           *httputil.Validator
 	rateLimiter         *ratelimit.Limiter
 }

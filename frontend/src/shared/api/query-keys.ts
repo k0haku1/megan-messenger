@@ -1,4 +1,5 @@
 export const queryKeys = {
+  folders: ['folders'] as const,
   conversations: ['conversations'] as const,
   projects: ['projects'] as const,
   project: (id: string) => ['projects', id] as const,

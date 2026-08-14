@@ -3,10 +3,9 @@ import { useConversationSelectionStore } from '@/features/conversation-selection
 import { queryClient } from '@/shared/api/query-client'
 import { queryKeys } from '@/shared/api/query-keys'
 
-export async function openConversation(conversationId: string, folder: 'all' | 'groups' = 'all') {
+export async function openConversation(conversationId: string) {
   const navigation = useConversationSelectionStore()
 
-  navigation.selectFolder(folder)
   navigation.select(conversationId)
   navigation.clearPendingPeer()
 
@@ -15,13 +14,13 @@ export async function openConversation(conversationId: string, folder: 'all' | '
 
 export async function createGroupChat(title: string, memberIds: string[]) {
   const created = await conversationApi.createGroup({ title, memberIds })
-  await openConversation(created.id, 'groups')
+  await openConversation(created.id)
   return created
 }
 
 export async function joinGroupChat(slug: string) {
   const joined = await conversationApi.joinBySlug(slug)
-  await openConversation(joined.id, 'groups')
+  await openConversation(joined.id)
   return joined
 }
 

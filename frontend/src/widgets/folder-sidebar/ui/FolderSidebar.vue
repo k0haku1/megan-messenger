@@ -3,15 +3,26 @@
     <div class="folder-sidebar__brand" aria-label="Megan Messenger">M</div>
     <nav class="folder-sidebar__nav">
       <BaseIconButton
-        v-for="folder in CHAT_FOLDERS"
+        :label="ALL_FOLDER.label"
+        :active="!isProjectsRoute && navigation.activeFolder === ALL_FOLDER.id"
+        @click="openFolder(ALL_FOLDER.id)"
+      >
+        <AppIcon name="folder-all" size="sm" />
+      </BaseIconButton>
+
+      <BaseIconButton
+        v-for="folder in folders"
         :key="folder.id"
-        :label="folder.label"
+        :label="folder.name"
         :active="!isProjectsRoute && navigation.activeFolder === folder.id"
         @click="openFolder(folder.id)"
+        @contextmenu.prevent="openFolderMenu($event, folder)"
       >
-        <AppIcon :name="folder.icon" size="sm" />
+        <FolderBadge :name="folder.name" size="sm" />
       </BaseIconButton>
+
       <span class="folder-sidebar__divider" />
+
       <BaseIconButton
         label="Проекты"
         :active="isProjectsRoute"
@@ -19,7 +30,8 @@
       >
         <AppIcon name="book" size="sm" />
       </BaseIconButton>
-      <BaseIconButton label="Добавить папку">
+
+      <BaseIconButton label="Добавить папку" @click="showCreateModal = true">
         <AppIcon name="plus" size="sm" />
       </BaseIconButton>
     </nav>
@@ -65,6 +77,23 @@
       </div>
     </div>
   </aside>
+
+  <ContextMenu
+    :open="!!folderMenu"
+    :point="folderMenu?.point ?? null"
+    :items="folderMenuItems"
+    @close="folderMenu = null"
+    @select="onFolderMenuSelect"
+  />
+
+  <FolderFormModal :open="showCreateModal" mode="create" @close="showCreateModal = false" />
+  <FolderFormModal
+    :open="!!renameTarget"
+    mode="rename"
+    :folder-id="renameTarget?.id"
+    :initial-name="renameTarget?.name"
+    @close="renameTarget = null"
+  />
 </template>
 
 <script setup lang="ts">
@@ -74,11 +103,17 @@ import { onClickOutside } from '@vueuse/core'
 import BaseIconButton from '@/shared/ui/BaseIconButton.vue'
 import BaseAvatar from '@/shared/ui/BaseAvatar.vue'
 import AppIcon from '@/shared/ui/AppIcon.vue'
-import { CHAT_FOLDERS, type FolderId } from '@/shared/config/folders'
+import ContextMenu from '@/shared/ui/ContextMenu.vue'
+import FolderBadge from '@/entities/folder/ui/FolderBadge.vue'
 import { useSessionStore } from '@/entities/session/model/session.store'
 import { getUserAvatarColor, getUserDisplayName } from '@/entities/session/lib/display'
 import { useConversationSelectionStore } from '@/features/conversation-selection/model/conversation-selection.store'
 import { useProfileUiStore } from '@/features/profile/model/profile-ui.store'
+import { useFolders, useDeleteFolder } from '@/entities/folder/api/folder.queries'
+import type { ChatFolder } from '@/entities/folder/model/types'
+import FolderFormModal from '@/features/create-folder/ui/FolderFormModal.vue'
+import { ALL_FOLDER } from '@/shared/config/folders'
+import type { MenuPoint } from '@/shared/lib/position-fixed-menu'
 
 const navigation = useConversationSelectionStore()
 const session = useSessionStore()
@@ -91,21 +126,60 @@ const isProjectsRoute = computed(() => route.path.startsWith('/projects'))
 const menuOpen = ref(false)
 const loggingOut = ref(false)
 const profileRef = ref<HTMLElement | null>(null)
+const showCreateModal = ref(false)
+const renameTarget = ref<ChatFolder | null>(null)
 
-onClickOutside(profileRef, () => {
-  menuOpen.value = false
-})
+const { folders } = useFolders()
+const { mutateAsync: deleteFolder } = useDeleteFolder()
+
+const folderMenu = ref<{ point: MenuPoint; folder: ChatFolder } | null>(null)
+
+const folderMenuItems = [
+  { id: 'rename', label: 'Переименовать' },
+  { id: 'delete', label: 'Удалить', danger: true },
+]
+
+onClickOutside(profileRef, () => { menuOpen.value = false })
 
 const displayName = computed(() =>
   getUserDisplayName(session.user?.username, session.user?.phone),
 )
 const avatarColor = computed(() => getUserAvatarColor(displayName.value))
 
-function openFolder(folderId: FolderId) {
+function openFolder(folderId: string) {
   navigation.selectFolder(folderId)
   if (isProjectsRoute.value) {
     void router.push({ name: 'messenger' })
   }
+}
+
+function openFolderMenu(event: MouseEvent, folder: ChatFolder) {
+  folderMenu.value = {
+    point: { x: event.clientX, y: event.clientY },
+    folder,
+  }
+}
+
+function onFolderMenuSelect(actionId: string) {
+  if (!folderMenu.value) return
+  const { folder } = folderMenu.value
+  folderMenu.value = null
+
+  if (actionId === 'rename') {
+    renameTarget.value = folder
+    return
+  }
+
+  if (actionId === 'delete') {
+    void removeFolder(folder)
+  }
+}
+
+async function removeFolder(folder: ChatFolder) {
+  if (navigation.activeFolder === folder.id) {
+    navigation.selectFolder(ALL_FOLDER.id)
+  }
+  await deleteFolder(folder.id)
 }
 
 function onOpenProfile() {

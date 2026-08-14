@@ -139,6 +139,22 @@ func (ns NullProjectMemberRole) Value() (driver.Value, error) {
 	return string(ns.ProjectMemberRole), nil
 }
 
+type ChatFolder struct {
+	ID        uuid.UUID          `db:"id" json:"id"`
+	UserID    uuid.UUID          `db:"user_id" json:"userId"`
+	Name      string             `db:"name" json:"name"`
+	Icon      pgtype.Text        `db:"icon" json:"icon"`
+	Position  int32              `db:"position" json:"position"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"createdAt"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updatedAt"`
+}
+
+type ChatFolderItem struct {
+	FolderID       uuid.UUID          `db:"folder_id" json:"folderId"`
+	ConversationID uuid.UUID          `db:"conversation_id" json:"conversationId"`
+	AddedAt        pgtype.Timestamptz `db:"added_at" json:"addedAt"`
+}
+
 type Conversation struct {
 	ID        uuid.UUID          `db:"id" json:"id"`
 	Type      ConversationType   `db:"type" json:"type"`

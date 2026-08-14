@@ -23,9 +23,10 @@ type Conversation struct {
 	Peer        *ConversationPeer    `json:"peer,omitempty"`
 	Members     []ConversationMember `json:"members,omitempty"`
 	LastMessage *ConversationPreview `json:"lastMessage,omitempty"`
-	UnreadCount int                  `json:"unreadCount"`
-	OthersReadAt *time.Time          `json:"othersReadAt,omitempty"`
-	CreatedAt   time.Time            `json:"createdAt"`
+	UnreadCount  int                  `json:"unreadCount"`
+	OthersReadAt *time.Time           `json:"othersReadAt,omitempty"`
+	FolderIDs    []uuid.UUID          `json:"folderIds"`
+	CreatedAt    time.Time            `json:"createdAt"`
 }
 
 type ConversationPeer struct {

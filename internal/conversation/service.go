@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+
 var (
 	ErrCannotDMYourself     = errors.New("cannot dm yourself")
 	ErrCannotMessageUser    = user.ErrCannotMessageUser
@@ -24,6 +25,7 @@ type Service struct {
 	users    repository.UserRepository
 	messages repository.MessageRepository
 	urls     *storage.URLResolver
+	folders  repository.FolderRepository
 }
 
 func NewService(
@@ -31,8 +33,9 @@ func NewService(
 	users repository.UserRepository,
 	messages repository.MessageRepository,
 	urls *storage.URLResolver,
+	folders repository.FolderRepository,
 ) *Service {
-	return &Service{repo: repo, users: users, messages: messages, urls: urls}
+	return &Service{repo: repo, users: users, messages: messages, urls: urls, folders: folders}
 }
 
 func (s *Service) ListByUser(ctx context.Context, userID uuid.UUID) ([]model.Conversation, error) {
@@ -42,7 +45,20 @@ func (s *Service) ListByUser(ctx context.Context, userID uuid.UUID) ([]model.Con
 	}
 	for i := range conversations {
 		s.resolvePeerAvatar(ctx, conversations[i].Peer)
+		conversations[i].FolderIDs = []uuid.UUID{}
 	}
+
+	if s.folders != nil {
+		folderMap, err := s.folders.GetFolderIDsByConversations(ctx, userID)
+		if err == nil {
+			for i := range conversations {
+				if ids, ok := folderMap[conversations[i].ID]; ok {
+					conversations[i].FolderIDs = ids
+				}
+			}
+		}
+	}
+
 	return conversations, nil
 }
 

@@ -12,15 +12,20 @@ import (
 )
 
 type Querier interface {
+	AddChatFolderItem(ctx context.Context, arg AddChatFolderItemParams) error
 	AddConversationMember(ctx context.Context, arg AddConversationMemberParams) error
 	AddMessageReaction(ctx context.Context, arg AddMessageReactionParams) error
 	AddProjectMember(ctx context.Context, arg AddProjectMemberParams) error
 	AdvanceMemberLastReadAt(ctx context.Context, arg AdvanceMemberLastReadAtParams) (pgtype.Timestamptz, error)
 	AttachToMessage(ctx context.Context, arg AttachToMessageParams) error
+	ChatFolderItemExists(ctx context.Context, arg ChatFolderItemExistsParams) (bool, error)
 	ClearUserPassword(ctx context.Context, id uuid.UUID) error
 	ConversationExists(ctx context.Context, id uuid.UUID) (bool, error)
+	CountChatFolderItems(ctx context.Context, folderID uuid.UUID) (int32, error)
 	CountPendingAttachments(ctx context.Context, arg CountPendingAttachmentsParams) (int64, error)
+	CountUserChatFolders(ctx context.Context, userID uuid.UUID) (int32, error)
 	CreateAttachment(ctx context.Context, arg CreateAttachmentParams) (MessageAttachment, error)
+	CreateChatFolder(ctx context.Context, arg CreateChatFolderParams) (ChatFolder, error)
 	CreateConversation(ctx context.Context, arg CreateConversationParams) (Conversation, error)
 	CreateDMPair(ctx context.Context, arg CreateDMPairParams) error
 	CreateMessage(ctx context.Context, arg CreateMessageParams) (Message, error)
@@ -28,13 +33,17 @@ type Querier interface {
 	CreateProjectDecision(ctx context.Context, arg CreateProjectDecisionParams) (ProjectDecision, error)
 	CreateProjectDoc(ctx context.Context, arg CreateProjectDocParams) (ProjectDoc, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteChatFolder(ctx context.Context, arg DeleteChatFolderParams) error
 	DeleteMessageForEveryone(ctx context.Context, arg DeleteMessageForEveryoneParams) (Message, error)
 	DeletePhoneOTP(ctx context.Context, phone string) error
 	DeleteProjectDoc(ctx context.Context, arg DeleteProjectDocParams) error
 	FindDMConversation(ctx context.Context, arg FindDMConversationParams) (uuid.UUID, error)
 	GetAttachmentByID(ctx context.Context, id uuid.UUID) (MessageAttachment, error)
+	GetChatFolder(ctx context.Context, id uuid.UUID) (ChatFolder, error)
 	GetConversation(ctx context.Context, id uuid.UUID) (Conversation, error)
 	GetConversationBySlug(ctx context.Context, slug pgtype.Text) (Conversation, error)
+	GetFolderIDsByConversations(ctx context.Context, userID uuid.UUID) ([]GetFolderIDsByConversationsRow, error)
+	GetFolderIDsForConversation(ctx context.Context, arg GetFolderIDsForConversationParams) ([]uuid.UUID, error)
 	GetMemberLastReadAt(ctx context.Context, arg GetMemberLastReadAtParams) (pgtype.Timestamptz, error)
 	GetMessageByID(ctx context.Context, id uuid.UUID) (GetMessageByIDRow, error)
 	GetMessageReactionUsers(ctx context.Context, messageID uuid.UUID) ([]GetMessageReactionUsersRow, error)
@@ -58,6 +67,7 @@ type Querier interface {
 	IsProjectMember(ctx context.Context, arg IsProjectMemberParams) (bool, error)
 	LinkProjectConversation(ctx context.Context, arg LinkProjectConversationParams) error
 	ListAttachmentsByMessageIDs(ctx context.Context, messageIds []uuid.UUID) ([]MessageAttachment, error)
+	ListChatFolders(ctx context.Context, userID uuid.UUID) ([]ChatFolder, error)
 	ListConversationMedia(ctx context.Context, arg ListConversationMediaParams) ([]MessageAttachment, error)
 	ListConversationMemberIDs(ctx context.Context, conversationID uuid.UUID) ([]uuid.UUID, error)
 	ListConversationProjects(ctx context.Context, arg ListConversationProjectsParams) ([]Project, error)
@@ -66,12 +76,16 @@ type Querier interface {
 	ListProjectDocs(ctx context.Context, projectID uuid.UUID) ([]ListProjectDocsRow, error)
 	ListProjectMembers(ctx context.Context, projectID uuid.UUID) ([]ListProjectMembersRow, error)
 	ListUserProjects(ctx context.Context, userID uuid.UUID) ([]ListUserProjectsRow, error)
+	MaxChatFolderPosition(ctx context.Context, userID uuid.UUID) (int32, error)
 	ProjectDocSlugExists(ctx context.Context, arg ProjectDocSlugExistsParams) (bool, error)
+	RemoveChatFolderItem(ctx context.Context, arg RemoveChatFolderItemParams) error
 	RemoveConversationMember(ctx context.Context, arg RemoveConversationMemberParams) error
 	RemoveMessageReaction(ctx context.Context, arg RemoveMessageReactionParams) error
 	SearchUsersByUsernamePrefix(ctx context.Context, arg SearchUsersByUsernamePrefixParams) ([]SearchUsersByUsernamePrefixRow, error)
 	SetUsername(ctx context.Context, arg SetUsernameParams) error
 	UnlinkProjectConversation(ctx context.Context, arg UnlinkProjectConversationParams) error
+	UpdateChatFolder(ctx context.Context, arg UpdateChatFolderParams) (ChatFolder, error)
+	UpdateChatFolderPosition(ctx context.Context, arg UpdateChatFolderPositionParams) error
 	UpdateProjectDecisionStatus(ctx context.Context, arg UpdateProjectDecisionStatusParams) (ProjectDecision, error)
 	UpdateProjectDoc(ctx context.Context, arg UpdateProjectDocParams) (ProjectDoc, error)
 	UpdateUserAvatar(ctx context.Context, arg UpdateUserAvatarParams) error
